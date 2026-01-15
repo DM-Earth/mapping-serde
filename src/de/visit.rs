@@ -141,7 +141,7 @@ pub trait Visitor<'de>: Sized {
     {
         drop(access);
         Err(A::Error::invalid_type(
-            "method argument",
+            "method variable",
             std::fmt::from_fn(|f| self.expecting(f)),
         ))
     }
@@ -164,6 +164,9 @@ pub trait ClassAccess<'de> {
     /// Error type.
     type Error: Error;
 
+    /// Type of deserializer of the element's contents.
+    type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
+
     /// Source name in internal form of binary name.
     fn src(&self) -> &'de str;
 
@@ -171,13 +174,16 @@ pub trait ClassAccess<'de> {
     fn dst(&self) -> impl Iterator<Item = &'de str>;
 
     /// Returns the content deserializer for further deserialization of this class.
-    fn content(self) -> impl Deserializer<'de, Error = Self::Error>;
+    fn content(self) -> Self::ContentDeserializer;
 }
 
 /// Field name, desc and comment accessor.
 pub trait FieldAccess<'de> {
     /// Error type.
     type Error: Error;
+
+    /// Type of deserializer of the element's contents.
+    type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
     fn src(&self) -> &'de str;
@@ -194,13 +200,16 @@ pub trait FieldAccess<'de> {
     /// Returns the content deserializer for further deserialization of this field.
     ///
     /// It may only contain comments.
-    fn content(self) -> impl Deserializer<'de, Error = Self::Error>;
+    fn content(self) -> Self::ContentDeserializer;
 }
 
 /// Method name, desc and content accessor.
 pub trait MethodAccess<'de> {
     /// Error type.
     type Error: Error;
+
+    /// Type of deserializer of the element's contents.
+    type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
     fn src(&self) -> &'de str;
@@ -215,13 +224,16 @@ pub trait MethodAccess<'de> {
     fn dst_desc(&self) -> Option<impl Iterator<Item = &'de str>>;
 
     /// Returns the content deserializer for further deserialization of this method.
-    fn content(self) -> impl Deserializer<'de, Error = Self::Error>;
+    fn content(self) -> Self::ContentDeserializer;
 }
 
 /// Method argument name, pos, slot and comment accessor.
 pub trait MethodArgAccess<'de> {
     /// Error type.
     type Error: Error;
+
+    /// Type of deserializer of the element's contents.
+    type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
     fn src(&self) -> Option<&'de str>;
@@ -243,13 +255,16 @@ pub trait MethodArgAccess<'de> {
     /// Returns the content deserializer for further deserialization of this method.
     ///
     /// It may only contain comments.
-    fn content(self) -> impl Deserializer<'de, Error = Self::Error>;
+    fn content(self) -> Self::ContentDeserializer;
 }
 
 /// Method argument name, pos, slot and comment accessor.
 pub trait MethodVarAccess<'de> {
     /// Error type.
     type Error: Error;
+
+    /// Type of deserializer of the element's contents.
+    type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
     fn src(&self) -> Option<&'de str>;
@@ -278,5 +293,5 @@ pub trait MethodVarAccess<'de> {
     /// Returns the content deserializer for further deserialization of this method.
     ///
     /// It may only contain comments.
-    fn content(self) -> impl Deserializer<'de, Error = Self::Error>;
+    fn content(self) -> Self::ContentDeserializer;
 }

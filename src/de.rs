@@ -2,9 +2,9 @@
 
 use std::fmt::Display;
 
-pub mod visit;
+mod visit;
 
-pub use visit::Visitor;
+pub use visit::*;
 
 /// Error type used by a deserializer.
 pub trait Error: std::error::Error + Sized {
@@ -28,4 +28,19 @@ pub trait Deserializer<'de> {
     fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
     where
         V: Visitor<'de>;
+}
+
+impl<'de, T> Deserializer<'de> for &mut T
+where
+    T: Deserializer<'de>,
+{
+    type Error = T::Error;
+
+    #[inline]
+    fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        T::deserialize_any(self, visitor)
+    }
 }

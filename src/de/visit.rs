@@ -1,6 +1,6 @@
 //! Mapping visit traits.
 
-use std::{fmt::Formatter, ops::Range};
+use core::{fmt::Formatter, ops::Range};
 
 use crate::de::Deserializer;
 
@@ -12,7 +12,7 @@ pub trait Visitor<'de>: Sized {
     type Value;
 
     /// Expecting item content, for error messages.
-    fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result;
+    fn expecting(&self, f: &mut Formatter<'_>) -> core::fmt::Result;
 
     /// Visits a possibly multi-line comment.
     fn visit_comment<E>(self, value: &str) -> Result<Self::Value, E>
@@ -22,7 +22,7 @@ pub trait Visitor<'de>: Sized {
         let _ = value;
         Err(E::invalid_type(
             "comment",
-            std::fmt::from_fn(|f| self.expecting(f)),
+            core::fmt::from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -46,7 +46,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "class",
-            std::fmt::from_fn(|f| self.expecting(f)),
+            core::fmt::from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -70,7 +70,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "field",
-            std::fmt::from_fn(|f| self.expecting(f)),
+            core::fmt::from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -94,7 +94,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "method",
-            std::fmt::from_fn(|f| self.expecting(f)),
+            core::fmt::from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -118,7 +118,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "method argument",
-            std::fmt::from_fn(|f| self.expecting(f)),
+            core::fmt::from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -142,7 +142,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "method variable",
-            std::fmt::from_fn(|f| self.expecting(f)),
+            core::fmt::from_fn(|f| self.expecting(f)),
         ))
     }
 

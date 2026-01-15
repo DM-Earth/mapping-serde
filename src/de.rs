@@ -1,13 +1,13 @@
 //! Deserialization based on visitors.
 
-use std::fmt::Display;
+use core::fmt::Display;
 
 mod visit;
 
 pub use visit::*;
 
 /// Error type used by a deserializer.
-pub trait Error: std::error::Error + Sized {
+pub trait Error: core::error::Error + Sized {
     /// A general error message during deserialization.
     fn custom<T>(msg: T) -> Self
     where
@@ -28,6 +28,14 @@ pub trait Deserializer<'de> {
     fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
     where
         V: Visitor<'de>;
+
+    /// Hints the count of remaining top-level entries of this deserializer.
+    ///
+    /// See [`Iterator::size_hint`] for more information.
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, None)
+    }
 }
 
 impl<'de, T> Deserializer<'de> for &mut T
@@ -42,5 +50,10 @@ where
         V: Visitor<'de>,
     {
         T::deserialize_any(self, visitor)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        T::size_hint(self)
     }
 }

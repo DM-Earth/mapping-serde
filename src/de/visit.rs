@@ -242,7 +242,7 @@ pub trait MethodArgAccess<'de> {
     fn dst(&self) -> Option<impl Iterator<Item = &'de str>>;
 
     /// The position of this argument starts from zero, and increase by one.
-    fn pos(&self) -> usize;
+    fn pos(&self) -> Option<usize>;
 
     /// The local variable index of this parameter in the current method.
     ///
@@ -250,7 +250,7 @@ pub trait MethodArgAccess<'de> {
     ///
     /// Also known as `slot`.
     #[doc(alias = "slot")]
-    fn lv_index(&self) -> usize;
+    fn lv_index(&self) -> Option<usize>;
 
     /// Returns the content deserializer for further deserialization of this method.
     ///
@@ -278,7 +278,7 @@ pub trait MethodVarAccess<'de> {
     ///
     /// Also known as `slot`.
     #[doc(alias = "slot")]
-    fn lv_index(&self) -> usize;
+    fn lv_index(&self) -> Option<usize>;
 
     /// The index of variable in the method's local variable table.
     fn lvt_row_index(&self) -> Option<usize>;

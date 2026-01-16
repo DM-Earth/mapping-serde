@@ -24,10 +24,25 @@ pub trait Deserializer<'de> {
     /// The error type.
     type Error: Error;
 
+    /// Returns the source namespace of this mapping.
+    fn src_namespace(&self) -> &str;
+
+    /// Returns the destination namespaces of this mapping.
+    fn dst_namespaces(&self) -> impl Iterator<Item = &str>;
+
     /// Seeks for the next entry and passes it into the given `visitor`.
     fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
     where
         V: Visitor<'de>;
+
+    /// Seeks for the next class and passes in into the given `visitor`.
+    #[inline]
+    fn deserialize_class<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_any(visitor)
+    }
 
     /// Hints the count of remaining top-level entries of this deserializer.
     ///
@@ -53,7 +68,25 @@ where
     }
 
     #[inline]
+    fn deserialize_class<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        T::deserialize_class(self, visitor)
+    }
+
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         T::size_hint(self)
+    }
+
+    #[inline]
+    fn src_namespace(&self) -> &str {
+        T::src_namespace(self)
+    }
+
+    #[inline]
+    fn dst_namespaces(&self) -> impl Iterator<Item = &str> {
+        T::dst_namespaces(self)
     }
 }

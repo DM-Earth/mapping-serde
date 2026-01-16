@@ -1,0 +1,13 @@
+[package]
+name = "enigma-mapping-serde"
+version = "0.1.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+smol_str = "0.3"
+memchr = "2.7"
+# workspace deps
+mapping-serde = { path = "../../", package = "java-mapping-serde" }

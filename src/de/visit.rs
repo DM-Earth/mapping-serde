@@ -41,7 +41,7 @@ pub trait Visitor<'de>: Sized {
     /// Visits a class.
     fn visit_class<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: ClassAccess<'b>,
+        A: ClassAccess<'de, 'b>,
     {
         drop(access);
         Err(A::Error::invalid_type(
@@ -57,7 +57,7 @@ pub trait Visitor<'de>: Sized {
     #[inline]
     fn visit_class_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: ClassAccess<'de>,
+        A: ClassAccess<'de, 'de>,
     {
         self.visit_class(access)
     }
@@ -65,7 +65,7 @@ pub trait Visitor<'de>: Sized {
     /// Visits a field.
     fn visit_field<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: FieldAccess<'b>,
+        A: FieldAccess<'de, 'b>,
     {
         drop(access);
         Err(A::Error::invalid_type(
@@ -81,7 +81,7 @@ pub trait Visitor<'de>: Sized {
     #[inline]
     fn visit_field_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: FieldAccess<'de>,
+        A: FieldAccess<'de, 'de>,
     {
         self.visit_field(access)
     }
@@ -89,7 +89,7 @@ pub trait Visitor<'de>: Sized {
     /// Visits a method.
     fn visit_method<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: MethodAccess<'b>,
+        A: MethodAccess<'de, 'b>,
     {
         drop(access);
         Err(A::Error::invalid_type(
@@ -105,7 +105,7 @@ pub trait Visitor<'de>: Sized {
     #[inline]
     fn visit_method_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: MethodAccess<'de>,
+        A: MethodAccess<'de, 'de>,
     {
         self.visit_method(access)
     }
@@ -113,7 +113,7 @@ pub trait Visitor<'de>: Sized {
     /// Visits a method argument.
     fn visit_method_arg<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: MethodArgAccess<'b>,
+        A: MethodArgAccess<'de, 'b>,
     {
         drop(access);
         Err(A::Error::invalid_type(
@@ -129,7 +129,7 @@ pub trait Visitor<'de>: Sized {
     #[inline]
     fn visit_method_arg_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: MethodArgAccess<'de>,
+        A: MethodArgAccess<'de, 'de>,
     {
         self.visit_method_arg(access)
     }
@@ -137,7 +137,7 @@ pub trait Visitor<'de>: Sized {
     /// Visits a method variable.
     fn visit_method_var<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: MethodVarAccess<'b>,
+        A: MethodVarAccess<'de, 'b>,
     {
         drop(access);
         Err(A::Error::invalid_type(
@@ -153,14 +153,14 @@ pub trait Visitor<'de>: Sized {
     #[inline]
     fn visit_method_var_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
     where
-        A: MethodVarAccess<'de>,
+        A: MethodVarAccess<'de, 'de>,
     {
         self.visit_method_var(access)
     }
 }
 
 /// Class name and content accessor.
-pub trait ClassAccess<'de> {
+pub trait ClassAccess<'de, 's> {
     /// Error type.
     type Error: Error;
 
@@ -168,17 +168,17 @@ pub trait ClassAccess<'de> {
     type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source name in internal form of binary name.
-    fn src(&self) -> &'de str;
+    fn src(&self) -> &'s str;
 
     /// Destination names in internal form of binary name.
-    fn dst(&self) -> impl Iterator<Item = &'de str>;
+    fn dst(&self) -> impl Iterator<Item = &'s str>;
 
     /// Returns the content deserializer for further deserialization of this class.
     fn content(self) -> Self::ContentDeserializer;
 }
 
 /// Field name, desc and comment accessor.
-pub trait FieldAccess<'de> {
+pub trait FieldAccess<'de, 's> {
     /// Error type.
     type Error: Error;
 
@@ -186,16 +186,16 @@ pub trait FieldAccess<'de> {
     type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
-    fn src(&self) -> &'de str;
+    fn src(&self) -> &'s str;
 
     /// Destination simple names.
-    fn dst(&self) -> impl Iterator<Item = &'de str>;
+    fn dst(&self) -> impl Iterator<Item = &'s str>;
 
     /// Descriptor of this field as `FieldType` shown in JVMS.
-    fn desc(&self) -> Option<&'de str>;
+    fn desc(&self) -> Option<&'s str>;
 
     /// Descriptor of this field's destinations as `FieldType` shown in JVMS.
-    fn dst_desc(&self) -> Option<impl Iterator<Item = &'de str>>;
+    fn dst_desc(&self) -> Option<impl Iterator<Item = &'s str>>;
 
     /// Returns the content deserializer for further deserialization of this field.
     ///
@@ -204,7 +204,7 @@ pub trait FieldAccess<'de> {
 }
 
 /// Method name, desc and content accessor.
-pub trait MethodAccess<'de> {
+pub trait MethodAccess<'de, 's> {
     /// Error type.
     type Error: Error;
 
@@ -212,23 +212,23 @@ pub trait MethodAccess<'de> {
     type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
-    fn src(&self) -> &'de str;
+    fn src(&self) -> &'s str;
 
     /// Destination simple names.
-    fn dst(&self) -> impl Iterator<Item = &'de str>;
+    fn dst(&self) -> impl Iterator<Item = &'s str>;
 
     /// Descriptor of this method.
-    fn desc(&self) -> Option<&'de str>;
+    fn desc(&self) -> Option<&'s str>;
 
     /// Descriptor of this field's destinations.
-    fn dst_desc(&self) -> Option<impl Iterator<Item = &'de str>>;
+    fn dst_desc(&self) -> Option<impl Iterator<Item = &'s str>>;
 
     /// Returns the content deserializer for further deserialization of this method.
     fn content(self) -> Self::ContentDeserializer;
 }
 
 /// Method argument name, pos, slot and comment accessor.
-pub trait MethodArgAccess<'de> {
+pub trait MethodArgAccess<'de, 's> {
     /// Error type.
     type Error: Error;
 
@@ -236,10 +236,10 @@ pub trait MethodArgAccess<'de> {
     type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
-    fn src(&self) -> Option<&'de str>;
+    fn src(&self) -> Option<&'s str>;
 
     /// Destination simple names.
-    fn dst(&self) -> Option<impl Iterator<Item = &'de str>>;
+    fn dst(&self) -> Option<impl Iterator<Item = &'s str>>;
 
     /// The position of this argument starts from zero, and increase by one.
     fn pos(&self) -> Option<usize>;
@@ -259,7 +259,7 @@ pub trait MethodArgAccess<'de> {
 }
 
 /// Method argument name, pos, slot and comment accessor.
-pub trait MethodVarAccess<'de> {
+pub trait MethodVarAccess<'de, 's> {
     /// Error type.
     type Error: Error;
 
@@ -267,10 +267,10 @@ pub trait MethodVarAccess<'de> {
     type ContentDeserializer: Deserializer<'de, Error = Self::Error>;
 
     /// Source simple name.
-    fn src(&self) -> Option<&'de str>;
+    fn src(&self) -> Option<&'s str>;
 
     /// Destination simple names.
-    fn dst(&self) -> Option<impl Iterator<Item = &'de str>>;
+    fn dst(&self) -> Option<impl Iterator<Item = &'s str>>;
 
     /// The local variable index of this variable in the current method.
     ///

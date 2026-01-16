@@ -5,3 +5,6 @@
 
 pub mod de;
 pub mod ser;
+
+pub use de::Deserializer;
+pub use ser::Serializer;

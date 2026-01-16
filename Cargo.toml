@@ -1,3 +1,6 @@
+[workspace]
+members = ["formats/*"]
+
 [package]
 name = "java-mapping-serde"
 version = "0.1.0"

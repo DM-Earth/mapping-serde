@@ -14,7 +14,7 @@ pub struct Deserializer<'a, R> {
     src: &'a str,
     dst: &'a str,
     ident: usize,
-    last_abort_ident: MaybeMut<'a, Option<usize>>,
+    aborted: bool,
     read: MaybeMut<'a, ColumnReader<R>>,
 }
 
@@ -25,7 +25,7 @@ impl<'a, R> Deserializer<'a, R> {
             src,
             dst,
             ident: 0,
-            last_abort_ident: MaybeMut::Owned(None),
+            aborted: false,
             read: MaybeMut::Owned(ColumnReader::new(b'\t', b' ', read)),
         }
     }
@@ -54,16 +54,24 @@ where
     where
         V: de::Visitor<'de>,
     {
-        if !self.read.is_fresh_line() && self.last_abort_ident.is_none_or(|i| i != self.ident) {
+        if self.aborted {
+            return Ok(None);
+        }
+        if self.read.is_fresh_line() {
+            if self.read.this_ident() != Some(self.ident) {
+                self.aborted = true;
+                return Ok(None);
+            }
+        } else {
             loop {
                 let ident = self.read.next_line()?;
                 if ident.is_none_or(|i| i < self.ident) {
-                    *self.last_abort_ident = Some(self.ident);
+                    self.aborted = true;
                     return Ok(None);
                 } else if ident.is_some_and(|i| i > self.ident) {
                     continue;
                 } else {
-                    *self.last_abort_ident = None;
+                    debug_assert_eq!(Some(self.ident), ident);
                     break;
                 }
             }
@@ -140,7 +148,7 @@ where
                         src: self.src,
                         dst: self.dst,
                         ident: self.ident + 1,
-                        last_abort_ident: self.last_abort_ident.reclaim(),
+                        aborted: false,
                         read: self.read.reclaim(),
                     },
                 })
@@ -152,7 +160,7 @@ where
                     src: self.src,
                     dst: self.dst,
                     ident: self.ident + 1,
-                    last_abort_ident: self.last_abort_ident.reclaim(),
+                    aborted: false,
                     read: self.read.reclaim(),
                 },
             }),
@@ -266,7 +274,7 @@ where
                         src: self.src,
                         dst: self.dst,
                         ident: self.ident + 1,
-                        last_abort_ident: self.last_abort_ident.reclaim(),
+                        aborted: false,
                         read: self.read.reclaim(),
                     },
                 };
@@ -289,7 +297,7 @@ where
                         src: self.src,
                         dst: self.dst,
                         ident: self.ident + 1,
-                        last_abort_ident: self.last_abort_ident.reclaim(),
+                        aborted: false,
                         read: self.read.reclaim(),
                     },
                 };
@@ -345,7 +353,7 @@ where
                         src: self.src,
                         dst: self.dst,
                         ident: self.ident + 1,
-                        last_abort_ident: self.last_abort_ident.reclaim(),
+                        aborted: false,
                         read: self.read.reclaim(),
                     },
                 }),
@@ -358,7 +366,7 @@ where
                         src: self.src,
                         dst: self.dst,
                         ident: self.ident + 1,
-                        last_abort_ident: self.last_abort_ident.reclaim(),
+                        aborted: false,
                         read: self.read.reclaim(),
                     },
                 })

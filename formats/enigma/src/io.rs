@@ -189,6 +189,7 @@ pub trait ColumnRead<'de> {
 
     fn last_col(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>>;
     fn this_line(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>>;
+    fn this_ident(&self) -> Option<usize>;
 }
 
 unsafe impl<'de, T> Read<'de> for &mut T
@@ -240,6 +241,11 @@ where
     ) -> std::io::Result<[Option<MaybeBorrowed<'_, 'de, [u8]>>; N]> {
         T::read_cols(self, col_separator)
     }
+
+    #[inline]
+    fn this_ident(&self) -> Option<usize> {
+        T::this_ident(self)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -260,7 +266,8 @@ impl<'a> SliceReader<'a> {
 unsafe impl<'de> Read<'de> for SliceReader<'de> {
     fn read_until(&mut self, separator: u8) -> std::io::Result<MaybeBorrowed<'_, 'de, [u8]>> {
         if let Some(loc) = memchr(separator, self.remaining) {
-            let (sliced, rest) = unsafe { self.remaining.split_at_unchecked(loc) };
+            let (sliced, mut rest) = unsafe { self.remaining.split_at_unchecked(loc) };
+            rest.split_off_first();
             self.remaining = rest;
             self.last = Some(sliced);
             Ok(MaybeBorrowed::Borrowed(sliced))
@@ -312,6 +319,7 @@ where
 #[derive(Debug, Clone)]
 pub struct ColumnReadAdapter<R> {
     line: Option<NonNull<[u8]>>,
+    ident: Option<usize>,
     last_col: Option<NonNull<[u8]>>,
     borrowed: bool,
     inner: Pin<R>,
@@ -324,6 +332,7 @@ where
     pub const fn new(inner: R) -> Self {
         Self {
             line: None,
+            ident: None,
             last_col: None,
             borrowed: false,
             inner: Pin::new(inner),
@@ -393,6 +402,7 @@ where
         });
         self.borrowed = slice.is_borrowed();
         self.line = Some(NonNull::from_ref(&slice));
+        self.ident = Some(count);
         Ok(Some(count))
     }
 
@@ -406,6 +416,11 @@ where
     fn this_line(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>> {
         self.line
             .map(|ptr| unsafe { MaybeBorrowed::from_raw_parts(self.borrowed, ptr) })
+    }
+
+    #[inline]
+    fn this_ident(&self) -> Option<usize> {
+        self.ident
     }
 }
 
@@ -445,6 +460,11 @@ impl<R> ColumnReader<R> {
     #[inline]
     pub fn is_fresh_line(&self) -> bool {
         self.fresh_line
+    }
+
+    #[inline]
+    pub fn mark_dirty(&mut self) {
+        self.fresh_line = false;
     }
 }
 
@@ -489,5 +509,10 @@ where
     #[inline]
     pub fn this_line(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>> {
         self.inner.this_line()
+    }
+
+    #[inline]
+    pub fn this_ident(&self) -> Option<usize> {
+        self.inner.this_ident()
     }
 }

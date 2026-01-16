@@ -243,6 +243,42 @@ where
 }
 
 #[derive(Debug, Clone)]
+pub struct SliceReader<'a> {
+    remaining: &'a [u8],
+    last: Option<&'a [u8]>,
+}
+
+impl<'a> SliceReader<'a> {
+    pub const fn new(slice: &'a [u8]) -> Self {
+        Self {
+            remaining: slice,
+            last: None,
+        }
+    }
+}
+
+unsafe impl<'de> Read<'de> for SliceReader<'de> {
+    fn read_until(&mut self, separator: u8) -> std::io::Result<MaybeBorrowed<'_, 'de, [u8]>> {
+        if let Some(loc) = memchr(separator, self.remaining) {
+            let (sliced, rest) = unsafe { self.remaining.split_at_unchecked(loc) };
+            self.remaining = rest;
+            self.last = Some(sliced);
+            Ok(MaybeBorrowed::Borrowed(sliced))
+        } else {
+            let slice = self.remaining;
+            self.last = Some(slice);
+            self.remaining = &[];
+            Ok(MaybeBorrowed::Borrowed(slice))
+        }
+    }
+
+    #[inline]
+    fn last_read(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>> {
+        self.last.map(MaybeBorrowed::Borrowed)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct IoReader<R> {
     buf: Vec<u8>,
     inner: R,
@@ -393,17 +429,6 @@ impl<R> ColumnReader<R> {
             col: 0,
             fresh_line: false,
             inner,
-        }
-    }
-
-    pub fn get_mut(&mut self) -> ColumnReader<&mut R> {
-        ColumnReader {
-            ident: self.ident,
-            col_separator: self.col_separator,
-            line: self.line,
-            col: self.col,
-            fresh_line: self.fresh_line,
-            inner: &mut self.inner,
         }
     }
 

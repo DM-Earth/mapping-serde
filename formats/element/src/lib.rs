@@ -4,12 +4,12 @@
 //! See `java-mapping-serde`'s documentation for more details about the data structure.
 
 #![no_std]
-#![allow(missing_docs)]
+#![allow(missing_docs, clippy::missing_errors_doc)]
 
 extern crate alloc;
 
 use alloc::boxed::Box;
-use mapping_serde::{Deserialize, Serialize, de};
+use mapping_serde::{Deserialize, Deserializer, Serialize, de};
 
 mod class;
 mod field;
@@ -51,7 +51,7 @@ impl<'de> Deserialize<'de> for Element {
     #[inline]
     fn deserialize<D>(mut deserializer: D) -> Result<Option<Self>, D::Error>
     where
-        D: mapping_serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         struct Visitor;
 
@@ -112,4 +112,13 @@ impl<'de> Deserialize<'de> for Element {
 
         deserializer.deserialize_any(Visitor)
     }
+}
+
+/// Deserializes a sequence of elements from the given deserializer.
+#[inline]
+pub fn deserialize_from<'de, D>(deserializer: D) -> Result<Box<[Element]>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Box::deserialize(deserializer).map(Option::unwrap_or_default)
 }

@@ -1,10 +1,35 @@
 //! Mapping visit traits.
 
-use core::{fmt::Formatter, ops::Range};
+use core::{
+    fmt::{Display, Formatter},
+    ops::Range,
+};
 
 use crate::de::Deserializer;
 
 use super::Error;
+
+#[inline]
+fn display_from_fn<F>(f: F) -> impl Display
+where
+    F: Fn(&mut Formatter<'_>) -> core::fmt::Result,
+{
+    struct FromFn<F> {
+        inner: F,
+    }
+
+    impl<F> Display for FromFn<F>
+    where
+        F: Fn(&mut Formatter<'_>) -> core::fmt::Result,
+    {
+        #[inline]
+        fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+            (self.inner)(f)
+        }
+    }
+
+    FromFn { inner: f }
+}
 
 /// Visitors for visiting a single item in a mapping file.
 pub trait Visitor<'de>: Sized {
@@ -22,7 +47,7 @@ pub trait Visitor<'de>: Sized {
         let _ = value;
         Err(E::invalid_type(
             "comment",
-            core::fmt::from_fn(|f| self.expecting(f)),
+            display_from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -46,7 +71,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "class",
-            core::fmt::from_fn(|f| self.expecting(f)),
+            display_from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -70,7 +95,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "field",
-            core::fmt::from_fn(|f| self.expecting(f)),
+            display_from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -94,7 +119,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "method",
-            core::fmt::from_fn(|f| self.expecting(f)),
+            display_from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -118,7 +143,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "method argument",
-            core::fmt::from_fn(|f| self.expecting(f)),
+            display_from_fn(|f| self.expecting(f)),
         ))
     }
 
@@ -142,7 +167,7 @@ pub trait Visitor<'de>: Sized {
         drop(access);
         Err(A::Error::invalid_type(
             "method variable",
-            core::fmt::from_fn(|f| self.expecting(f)),
+            display_from_fn(|f| self.expecting(f)),
         ))
     }
 

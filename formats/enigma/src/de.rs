@@ -15,7 +15,7 @@ pub struct Deserializer<'a, R> {
     dst: &'a str,
     ident: usize,
     last_abort_ident: MaybeMut<'a, Option<usize>>,
-    read: ColumnReader<R>,
+    read: MaybeMut<'a, ColumnReader<R>>,
 }
 
 impl<'a, R> Deserializer<'a, R> {
@@ -26,7 +26,7 @@ impl<'a, R> Deserializer<'a, R> {
             dst,
             ident: 0,
             last_abort_ident: MaybeMut::Owned(None),
-            read: ColumnReader::new(b'\t', b' ', read),
+            read: MaybeMut::Owned(ColumnReader::new(b'\t', b' ', read)),
         }
     }
 }
@@ -98,7 +98,7 @@ where
         struct Arg<'env, 'd, R> {
             dst: &'env str,
             lv_index: usize,
-            deser: Deserializer<'d, &'d mut R>,
+            deser: Deserializer<'d, R>,
         }
 
         impl<'de, 'env, 'd, R> de::MethodArgAccess<'de, 'env> for Arg<'env, 'd, R>
@@ -106,7 +106,7 @@ where
             R: ColumnRead<'de>,
         {
             type Error = Error;
-            type ContentDeserializer = Deserializer<'d, &'d mut R>;
+            type ContentDeserializer = Deserializer<'d, R>;
 
             #[inline]
             fn src(&self) -> Option<&'env str> {
@@ -141,7 +141,7 @@ where
                         dst: self.dst,
                         ident: self.ident + 1,
                         last_abort_ident: self.last_abort_ident.reclaim(),
-                        read: self.read.get_mut(),
+                        read: self.read.reclaim(),
                     },
                 })
             }
@@ -153,7 +153,7 @@ where
                     dst: self.dst,
                     ident: self.ident + 1,
                     last_abort_ident: self.last_abort_ident.reclaim(),
-                    read: self.read.get_mut(),
+                    read: self.read.reclaim(),
                 },
             }),
         }
@@ -191,7 +191,7 @@ where
             src: &'env str,
             dst: &'env str,
             desc: &'env str,
-            deser: Deserializer<'d, &'d mut R>,
+            deser: Deserializer<'d, R>,
         }
 
         impl<'de, 'env, 'd, R> de::FieldAccess<'de, 'env> for Described<'env, 'd, R>
@@ -199,7 +199,7 @@ where
             R: ColumnRead<'de>,
         {
             type Error = Error;
-            type ContentDeserializer = Deserializer<'d, &'d mut R>;
+            type ContentDeserializer = Deserializer<'d, R>;
 
             #[inline]
             fn src(&self) -> &'env str {
@@ -228,7 +228,7 @@ where
             R: ColumnRead<'de>,
         {
             type Error = Error;
-            type ContentDeserializer = Deserializer<'d, &'d mut R>;
+            type ContentDeserializer = Deserializer<'d, R>;
 
             #[inline]
             fn src(&self) -> &'env str {
@@ -267,7 +267,7 @@ where
                         dst: self.dst,
                         ident: self.ident + 1,
                         last_abort_ident: self.last_abort_ident.reclaim(),
-                        read: self.read.get_mut(),
+                        read: self.read.reclaim(),
                     },
                 };
                 match kind {
@@ -290,7 +290,7 @@ where
                         dst: self.dst,
                         ident: self.ident + 1,
                         last_abort_ident: self.last_abort_ident.reclaim(),
-                        read: self.read.get_mut(),
+                        read: self.read.reclaim(),
                     },
                 };
                 match kind {
@@ -312,7 +312,7 @@ where
         struct Class<'env, 'd, R> {
             src: &'env str,
             dst: &'env str,
-            deser: Deserializer<'d, &'d mut R>,
+            deser: Deserializer<'d, R>,
         }
 
         impl<'de, 'env, 'd, R> de::ClassAccess<'de, 'env> for Class<'env, 'd, R>
@@ -320,7 +320,7 @@ where
             R: ColumnRead<'de>,
         {
             type Error = Error;
-            type ContentDeserializer = Deserializer<'d, &'d mut R>;
+            type ContentDeserializer = Deserializer<'d, R>;
 
             #[inline]
             fn src(&self) -> &'env str {
@@ -346,7 +346,7 @@ where
                         dst: self.dst,
                         ident: self.ident + 1,
                         last_abort_ident: self.last_abort_ident.reclaim(),
-                        read: self.read.get_mut(),
+                        read: self.read.reclaim(),
                     },
                 }),
             _ => {
@@ -359,7 +359,7 @@ where
                         dst: self.dst,
                         ident: self.ident + 1,
                         last_abort_ident: self.last_abort_ident.reclaim(),
-                        read: self.read.get_mut(),
+                        read: self.read.reclaim(),
                     },
                 })
             }

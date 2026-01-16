@@ -8,6 +8,10 @@ edition = "2024"
 
 [dependencies]
 
+[features]
+default = ["alloc"]
+alloc = []
+
 [lints]
 workspace = true
 

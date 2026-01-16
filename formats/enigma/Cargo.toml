@@ -1,5 +1,5 @@
 [package]
-name = "enigma-mapping-serde"
+name = "java-mapping-serde-enigma"
 version = "0.1.0"
 edition = "2024"
 
@@ -11,3 +11,6 @@ smol_str = "0.3"
 memchr = "2.7"
 # workspace deps
 mapping-serde = { path = "../../", package = "java-mapping-serde" }
+
+[dev-dependencies]
+mapping-serde-element = { path = "../element", package = "java-mapping-serde-element" }

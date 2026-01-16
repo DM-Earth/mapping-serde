@@ -2,6 +2,7 @@
 
 use core::fmt::Display;
 
+mod r#impl;
 mod visit;
 
 pub use visit::*;
@@ -17,6 +18,17 @@ pub trait Error: core::error::Error + Sized {
     fn invalid_type(unexp: impl Display, exp: impl Display) -> Self {
         Self::custom(format_args!("invalid type: {unexp}, expected {exp}"))
     }
+}
+
+/// A type that can be deserialized from a [`Deserializer`].
+pub trait Deserialize<'de>: Sized {
+    /// Whether the implementation returns `Some` or `None` conditionally.
+    const IS_CONDITIONAL: bool = true;
+
+    /// Deserializes elements from the given deserializer.
+    fn deserialize<D>(deserializer: D) -> Result<Option<Self>, D::Error>
+    where
+        D: Deserializer<'de>;
 }
 
 /// Deserializer of a mapping file.
@@ -35,9 +47,45 @@ pub trait Deserializer<'de> {
     where
         V: Visitor<'de>;
 
-    /// Seeks for the next class and passes in into the given `visitor`.
+    /// Hints the deserializer to deserialize a class.
     #[inline]
     fn deserialize_class<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_any(visitor)
+    }
+
+    /// Hints the deserializer to deserialize a field.
+    #[inline]
+    fn deserialize_field<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_any(visitor)
+    }
+
+    /// Hints the deserializer to deserialize a method.
+    #[inline]
+    fn deserialize_method<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_any(visitor)
+    }
+
+    /// Hints the deserializer to deserialize a method argument.
+    #[inline]
+    fn deserialize_method_arg<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_any(visitor)
+    }
+
+    /// Hints the deserializer to deserialize a method variable.
+    #[inline]
+    fn deserialize_method_var<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -73,6 +121,38 @@ where
         V: Visitor<'de>,
     {
         T::deserialize_class(self, visitor)
+    }
+
+    #[inline]
+    fn deserialize_field<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        T::deserialize_field(self, visitor)
+    }
+
+    #[inline]
+    fn deserialize_method<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        T::deserialize_method(self, visitor)
+    }
+
+    #[inline]
+    fn deserialize_method_arg<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        T::deserialize_method_arg(self, visitor)
+    }
+
+    #[inline]
+    fn deserialize_method_var<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        T::deserialize_method_var(self, visitor)
     }
 
     #[inline]

@@ -2,6 +2,8 @@
 
 use core::{fmt::Display, marker::PhantomData, ops::Range};
 
+mod r#impl;
+
 /// Error type used by a serializer.
 pub trait Error: core::error::Error + Sized {
     /// A general error message during serialization.
@@ -12,6 +14,27 @@ pub trait Error: core::error::Error + Sized {
     /// Ran into an element type that is not supported by the serializer.
     fn unsupported_type(ty: impl Display) -> Self {
         Self::custom(format_args!("unsupported type for serializer: {ty}"))
+    }
+}
+
+/// Type that could be serialized into a mapping file through [`Serializer`].
+pub trait Serialize {
+    /// Serializes this value.
+    fn serialize<S>(&self, serializer: S) -> Result<(), S::Error>
+    where
+        S: Serializer;
+}
+
+impl<T: ?Sized> Serialize for &T
+where
+    T: Serialize,
+{
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<(), S::Error>
+    where
+        S: Serializer,
+    {
+        T::serialize(self, serializer)
     }
 }
 
@@ -74,8 +97,8 @@ pub trait Serializer {
     /// Serializes a method argument.
     fn serialize_method_arg<Dst>(
         &mut self,
-        src: &str,
-        dst: Dst,
+        src: Option<&str>,
+        dst: Option<Dst>,
         pos: Option<usize>,
         lv_index: Option<usize>,
     ) -> Result<Self::SerializeMethodArg, Self::Error>
@@ -157,8 +180,8 @@ where
     #[inline]
     fn serialize_method_arg<Dst>(
         &mut self,
-        src: &str,
-        dst: Dst,
+        src: Option<&str>,
+        dst: Option<Dst>,
         pos: Option<usize>,
         lv_index: Option<usize>,
     ) -> Result<Self::SerializeMethodArg, Self::Error>
@@ -245,8 +268,8 @@ where
 
     fn serialize_method_arg<Dst>(
         &mut self,
-        _src: &str,
-        _dst: Dst,
+        _src: Option<&str>,
+        _dst: Option<Dst>,
         _pos: Option<usize>,
         _lv_index: Option<usize>,
     ) -> Result<Self::SerializeMethodArg, Self::Error>

@@ -90,3 +90,8 @@ impl mapping_serde::de::Error for Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    mod de;
+}

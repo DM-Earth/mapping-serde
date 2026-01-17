@@ -31,4 +31,26 @@ fn valid_from_bytes() {
     assert_eq!(field1.dst.len(), 1);
     assert_eq!(field1.dst[0], "field1Ns0Rename");
     assert_eq!(field1.desc.as_deref(), Some("I"));
+    assert!(field1.dst_desc.is_none());
+
+    let Element::Method(method1) = content.next().expect("failed to get method_1") else {
+        panic!("method_1 type mismatch")
+    };
+    assert_eq!(method1.src, "method_1");
+    assert_eq!(method1.dst.len(), 1);
+    assert_eq!(method1.dst[0], "method1Ns0Rename");
+    assert_eq!(method1.desc.as_deref(), Some("()I"));
+    assert!(method1.dst_desc.is_none());
+    assert_eq!(method1.content.len(), 1);
+    let Element::MethodArg(arg1) = &method1.content.first().expect("failed get arg1") else {
+        panic!("arg1 type mismatch");
+    };
+    assert_eq!(arg1.lv_index, Some(1));
+    assert_eq!(arg1.pos, None);
+    assert_eq!(&arg1.dst.as_ref().unwrap()[0], "param1Ns0Rename");
+
+    assert!(matches!(
+        elements.next().expect("failed to get glass_3"),
+        Element::Class(_)
+    ));
 }

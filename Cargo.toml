@@ -1,5 +1,5 @@
 [workspace]
-members = ["formats/*"]
+members = ["formats/*", "io"]
 
 [package]
 name = "java-mapping-serde"

@@ -13,7 +13,7 @@ use crate::{
 pub struct Deserializer<'a, R> {
     src: &'a str,
     dst: &'a str,
-    ident: usize,
+    indent: usize,
     aborted: bool,
     read: MaybeMut<'a, ColumnReader<R>>,
 }
@@ -24,7 +24,7 @@ impl<'a, R> Deserializer<'a, R> {
         Self {
             src,
             dst,
-            ident: 0,
+            indent: 0,
             aborted: false,
             read: MaybeMut::Owned(ColumnReader::new(b'\t', b' ', read)),
         }
@@ -58,20 +58,20 @@ where
             return Ok(None);
         }
         if self.read.is_fresh_line() {
-            if self.read.this_ident() != Some(self.ident) {
+            if self.read.this_indent() != Some(self.indent) {
                 self.aborted = true;
                 return Ok(None);
             }
         } else {
             loop {
-                let ident = self.read.next_line()?;
-                if ident.is_none_or(|i| i < self.ident) {
+                let indent = self.read.next_line()?;
+                if indent.is_none_or(|i| i < self.indent) {
                     self.aborted = true;
                     return Ok(None);
-                } else if ident.is_some_and(|i| i > self.ident) {
+                } else if indent.is_some_and(|i| i > self.indent) {
                     continue;
                 } else {
-                    debug_assert_eq!(Some(self.ident), ident);
+                    debug_assert_eq!(Some(self.indent), indent);
                     break;
                 }
             }
@@ -147,7 +147,7 @@ where
                     deser: Deserializer {
                         src: self.src,
                         dst: self.dst,
-                        ident: self.ident + 1,
+                        indent: self.indent + 1,
                         aborted: false,
                         read: self.read.reclaim(),
                     },
@@ -159,7 +159,7 @@ where
                 deser: Deserializer {
                     src: self.src,
                     dst: self.dst,
-                    ident: self.ident + 1,
+                    indent: self.indent + 1,
                     aborted: false,
                     read: self.read.reclaim(),
                 },
@@ -273,7 +273,7 @@ where
                     deser: Deserializer {
                         src: self.src,
                         dst: self.dst,
-                        ident: self.ident + 1,
+                        indent: self.indent + 1,
                         aborted: false,
                         read: self.read.reclaim(),
                     },
@@ -296,7 +296,7 @@ where
                     deser: Deserializer {
                         src: self.src,
                         dst: self.dst,
-                        ident: self.ident + 1,
+                        indent: self.indent + 1,
                         aborted: false,
                         read: self.read.reclaim(),
                     },
@@ -352,7 +352,7 @@ where
                     deser: Deserializer {
                         src: self.src,
                         dst: self.dst,
-                        ident: self.ident + 1,
+                        indent: self.indent + 1,
                         aborted: false,
                         read: self.read.reclaim(),
                     },
@@ -365,7 +365,7 @@ where
                     deser: Deserializer {
                         src: self.src,
                         dst: self.dst,
-                        ident: self.ident + 1,
+                        indent: self.indent + 1,
                         aborted: false,
                         read: self.read.reclaim(),
                     },

@@ -1,0 +1,12 @@
+[package]
+name = "java-mapping-serde-io-util"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+memchr = "2.7"
+
+[features]
+
+[lints]
+workspace = true

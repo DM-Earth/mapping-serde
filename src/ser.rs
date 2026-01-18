@@ -48,27 +48,27 @@ pub trait Serializer {
     /// The error type.
     type Error: Error;
 
-    /// Type returned from [`serializer_class`] for class content serialization.
+    /// Type returned from [`Serializer::serialize_class`] for class content serialization.
     type SerializeClass<'a>: Serializer<Error = Self::Error>
     where
         Self: 'a;
 
-    /// Type returned from [`serializer_field`] for field comment serialization.
+    /// Type returned from [`Serializer::serialize_field`] for field comment serialization.
     type SerializeField<'a>: Serializer<Error = Self::Error>
     where
         Self: 'a;
 
-    /// Type returned from [`serializer_method`] for method arguments, variables and comment serialization.
+    /// Type returned from [`Serializer::serialize_method`] for method arguments, variables and comment serialization.
     type SerializeMethod<'a>: Serializer<Error = Self::Error>
     where
         Self: 'a;
 
-    /// Type returned from [`serializer_method_arg`] for method argument comment serialization.
+    /// Type returned from [`Serializer::serialize_method_arg`] for method argument comment serialization.
     type SerializeMethodArg<'a>: Serializer<Error = Self::Error>
     where
         Self: 'a;
 
-    /// Type returned from [`serializer_method_var`] for method variable comment serialization.
+    /// Type returned from [`Serializer::serialize_method_var`] for method variable comment serialization.
     type SerializeMethodVar<'a>: Serializer<Error = Self::Error>
     where
         Self: 'a;

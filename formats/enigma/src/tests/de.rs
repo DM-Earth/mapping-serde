@@ -1,3 +1,6 @@
+use std::io::Cursor;
+
+use io_util::IoReader;
 use mapping_serde_element::Element;
 
 use crate::{
@@ -6,14 +9,8 @@ use crate::{
     tests::TEST_MAPPING,
 };
 
-#[test]
-fn valid_from_bytes() {
-    let mut reader = SliceReader::new(TEST_MAPPING);
-    let col_reader = ColumnReadAdapter::new(&mut reader);
-    let deserializer = Deserializer::new("src", "dst", col_reader);
-    let mut elements = mapping_serde_element::deserialize_from(deserializer)
-        .expect("failed to deserialize")
-        .into_iter();
+fn validate_elements(value: &[Element]) {
+    let mut elements = value.iter();
 
     let Element::Class(class1) = elements.next().expect("failed to get class_1") else {
         panic!("class_1 type mismatch")
@@ -52,4 +49,24 @@ fn valid_from_bytes() {
         elements.next().expect("failed to get glass_3"),
         Element::Class(_)
     ));
+}
+
+#[test]
+fn deserialize_from_slice() {
+    let mut reader = SliceReader::new(TEST_MAPPING);
+    let col_reader = ColumnReadAdapter::new(&mut reader);
+    let deserializer = Deserializer::new("src", "dst", col_reader);
+    let elements =
+        mapping_serde_element::deserialize_from(deserializer).expect("failed to deserialize");
+    validate_elements(&elements);
+}
+
+#[test]
+fn deserialize_from_io() {
+    let mut reader = IoReader::new(Cursor::new(TEST_MAPPING));
+    let col_reader = ColumnReadAdapter::new(&mut reader);
+    let deserializer = Deserializer::new("src", "dst", col_reader);
+    let elements =
+        mapping_serde_element::deserialize_from(deserializer).expect("failed to deserialize");
+    validate_elements(&elements);
 }

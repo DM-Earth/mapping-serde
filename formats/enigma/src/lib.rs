@@ -2,8 +2,16 @@
 
 use std::fmt::Display;
 
-pub mod de;
 mod io;
+
+mod de;
+mod ser;
+
+pub use de::Deserializer;
+pub use ser::Serializer;
+
+const INDENT: u8 = b'\t';
+const SEPARATOR: u8 = b' ';
 
 /// An error occured in serialization or deserialization.
 #[derive(Debug)]
@@ -25,6 +33,7 @@ enum ErrorKind {
     Msg(Box<str>),
     Io(std::io::Error),
     Utf8(std::str::Utf8Error),
+    Unsupported(&'static str),
 }
 
 impl Display for ErrorKind {
@@ -33,7 +42,8 @@ impl Display for ErrorKind {
         match self {
             Self::Msg(msg) => write!(f, "{msg}"),
             Self::Io(error) => write!(f, "I/O error: {error}"),
-            Self::Utf8(utf8_error) => write!(f, "Utf8 conversion error: {utf8_error}"),
+            Self::Utf8(utf8_error) => write!(f, "utf8 conversion error: {utf8_error}"),
+            Self::Unsupported(msg) => write!(f, "unsupported: {msg}"),
         }
     }
 }
@@ -91,7 +101,23 @@ impl mapping_serde::de::Error for Error {
     }
 }
 
+impl mapping_serde::ser::Error for Error {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: Display,
+    {
+        Self {
+            kind: ErrorKind::Msg(msg.to_string().into_boxed_str()),
+            line: 0,
+            col: 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     mod de;
+    mod ser;
+
+    const TEST_MAPPING: &[u8] = include_bytes!("../testset/valid.mappings");
 }

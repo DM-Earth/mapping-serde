@@ -3,13 +3,12 @@ use mapping_serde_element::Element;
 use crate::{
     de::Deserializer,
     io::{ColumnReadAdapter, SliceReader},
+    tests::TEST_MAPPING,
 };
-
-const VALID: &[u8] = include_bytes!("../../testset/valid.mappings");
 
 #[test]
 fn valid_from_bytes() {
-    let mut reader = SliceReader::new(VALID);
+    let mut reader = SliceReader::new(TEST_MAPPING);
     let col_reader = ColumnReadAdapter::new(&mut reader);
     let deserializer = Deserializer::new("src", "dst", col_reader);
     let mut elements = mapping_serde_element::deserialize_from(deserializer)

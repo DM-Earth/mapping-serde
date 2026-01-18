@@ -4,7 +4,7 @@ use mapping_serde::de::{self, Error as _};
 use smol_str::ToSmolStr as _;
 
 use crate::{
-    Error,
+    Error, INDENT, SEPARATOR,
     io::{ColumnRead, ColumnReader, MaybeBorrowed, MaybeMut, SmolCowStr},
 };
 
@@ -26,7 +26,7 @@ impl<'a, R> Deserializer<'a, R> {
             dst,
             indent: 0,
             aborted: false,
-            read: MaybeMut::Owned(ColumnReader::new(b'\t', b' ', read)),
+            read: MaybeMut::Owned(ColumnReader::new(INDENT, SEPARATOR, read)),
         }
     }
 }
@@ -79,6 +79,10 @@ where
 
         let ty = self.read.read_col()?;
         let ty = ty.as_deref().unwrap_or_default();
+        if ty.starts_with(b"#") {
+            // it is literally a comment
+            return self.deserialize_impl(visitor);
+        }
         match ty {
             b"CLASS" => self.deserialize_class_impl(visitor),
             b"COMMENT" => self.deserialize_comment_impl(visitor),
@@ -99,13 +103,16 @@ where
     {
         let [lv_index, dst] = self.read.read_cols()?;
         let lv_index = parse_bytes(lv_index, "lv-index")?
-            .parse::<usize>()
-            .map_err(|err| Error::custom(format_args!("invalid parameter lv-index: {err}")))?;
+            .parse::<isize>()
+            .ok()
+            .filter(|&i| i > -1)
+            .ok_or_else(|| Error::custom(format_args!("invalid parameter lv-index")))?;
+        let lv_index = (lv_index >= 0).then_some(lv_index as usize);
         let dst = parse_bytes(dst, "name-b")?;
 
         struct Arg<'env, 'd, R> {
             dst: &'env str,
-            lv_index: usize,
+            lv_index: Option<usize>,
             deser: Deserializer<'d, R>,
         }
 
@@ -130,7 +137,7 @@ where
             }
             #[inline]
             fn lv_index(&self) -> Option<usize> {
-                Some(self.lv_index)
+                self.lv_index
             }
             #[inline]
             fn content(self) -> Self::ContentDeserializer {

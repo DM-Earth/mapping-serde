@@ -15,6 +15,11 @@ pub trait Error: core::error::Error + Sized {
     fn unsupported_type(ty: impl Display) -> Self {
         Self::custom(format_args!("unsupported type for serializer: {ty}"))
     }
+
+    /// One or more fields are missing in the provided arguments during serialization.
+    fn missing_field(field: impl Display) -> Self {
+        Self::custom(format_args!("missing field for serializer: {field}"))
+    }
 }
 
 /// Type that could be serialized into a mapping file through [`Serializer`].
@@ -44,19 +49,29 @@ pub trait Serializer {
     type Error: Error;
 
     /// Type returned from [`serializer_class`] for class content serialization.
-    type SerializeClass: Serializer<Error = Self::Error>;
+    type SerializeClass<'a>: Serializer<Error = Self::Error>
+    where
+        Self: 'a;
 
     /// Type returned from [`serializer_field`] for field comment serialization.
-    type SerializeField: Serializer<Error = Self::Error>;
+    type SerializeField<'a>: Serializer<Error = Self::Error>
+    where
+        Self: 'a;
 
     /// Type returned from [`serializer_method`] for method arguments, variables and comment serialization.
-    type SerializeMethod: Serializer<Error = Self::Error>;
+    type SerializeMethod<'a>: Serializer<Error = Self::Error>
+    where
+        Self: 'a;
 
     /// Type returned from [`serializer_method_arg`] for method argument comment serialization.
-    type SerializeMethodArg: Serializer<Error = Self::Error>;
+    type SerializeMethodArg<'a>: Serializer<Error = Self::Error>
+    where
+        Self: 'a;
 
     /// Type returned from [`serializer_method_var`] for method variable comment serialization.
-    type SerializeMethodVar: Serializer<Error = Self::Error>;
+    type SerializeMethodVar<'a>: Serializer<Error = Self::Error>
+    where
+        Self: 'a;
 
     /// Serializes a comment literal.
     fn serialize_comment(&mut self, value: &str) -> Result<(), Self::Error>;
@@ -66,7 +81,7 @@ pub trait Serializer {
         &mut self,
         src: &str,
         dst: Dst,
-    ) -> Result<Self::SerializeClass, Self::Error>
+    ) -> Result<Self::SerializeClass<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>;
 
@@ -77,7 +92,7 @@ pub trait Serializer {
         desc: Option<&str>,
         dst: Dst,
         dst_desc: Option<DstDesc>,
-    ) -> Result<Self::SerializeField, Self::Error>
+    ) -> Result<Self::SerializeField<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>;
@@ -89,7 +104,7 @@ pub trait Serializer {
         desc: Option<&str>,
         dst: Dst,
         dst_desc: Option<DstDesc>,
-    ) -> Result<Self::SerializeMethod, Self::Error>
+    ) -> Result<Self::SerializeMethod<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>;
@@ -101,7 +116,7 @@ pub trait Serializer {
         dst: Option<Dst>,
         pos: Option<usize>,
         lv_index: Option<usize>,
-    ) -> Result<Self::SerializeMethodArg, Self::Error>
+    ) -> Result<Self::SerializeMethodArg<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>;
 
@@ -113,7 +128,7 @@ pub trait Serializer {
         lv_index: Option<usize>,
         lvt_row_index: Option<usize>,
         op_idx: Option<Range<usize>>,
-    ) -> Result<Self::SerializeMethodVar, Self::Error>
+    ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>;
 }
@@ -124,11 +139,30 @@ where
 {
     type Error = T::Error;
 
-    type SerializeClass = T::SerializeClass;
-    type SerializeField = T::SerializeField;
-    type SerializeMethod = T::SerializeMethod;
-    type SerializeMethodArg = T::SerializeMethodArg;
-    type SerializeMethodVar = T::SerializeMethodVar;
+    type SerializeClass<'a>
+        = T::SerializeClass<'a>
+    where
+        Self: 'a;
+
+    type SerializeField<'a>
+        = T::SerializeField<'a>
+    where
+        Self: 'a;
+
+    type SerializeMethod<'a>
+        = T::SerializeMethod<'a>
+    where
+        Self: 'a;
+
+    type SerializeMethodArg<'a>
+        = T::SerializeMethodArg<'a>
+    where
+        Self: 'a;
+
+    type SerializeMethodVar<'a>
+        = T::SerializeMethodVar<'a>
+    where
+        Self: 'a;
 
     #[inline]
     fn serialize_comment(&mut self, value: &str) -> Result<(), Self::Error> {
@@ -140,7 +174,7 @@ where
         &mut self,
         src: &str,
         dst: Dst,
-    ) -> Result<Self::SerializeClass, Self::Error>
+    ) -> Result<Self::SerializeClass<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
@@ -154,7 +188,7 @@ where
         desc: Option<&str>,
         dst: Dst,
         dst_desc: Option<DstDesc>,
-    ) -> Result<Self::SerializeField, Self::Error>
+    ) -> Result<Self::SerializeField<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>,
@@ -169,7 +203,7 @@ where
         desc: Option<&str>,
         dst: Dst,
         dst_desc: Option<DstDesc>,
-    ) -> Result<Self::SerializeMethod, Self::Error>
+    ) -> Result<Self::SerializeMethod<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>,
@@ -184,7 +218,7 @@ where
         dst: Option<Dst>,
         pos: Option<usize>,
         lv_index: Option<usize>,
-    ) -> Result<Self::SerializeMethodArg, Self::Error>
+    ) -> Result<Self::SerializeMethodArg<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
@@ -199,7 +233,7 @@ where
         lv_index: Option<usize>,
         lvt_row_index: Option<usize>,
         op_idx: Option<Range<usize>>,
-    ) -> Result<Self::SerializeMethodVar, Self::Error>
+    ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
@@ -217,11 +251,30 @@ where
 {
     type Error = Err;
 
-    type SerializeClass = Self;
-    type SerializeField = Self;
-    type SerializeMethod = Self;
-    type SerializeMethodArg = Self;
-    type SerializeMethodVar = Self;
+    type SerializeClass<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeField<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeMethod<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeMethodArg<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeMethodVar<'a>
+        = Self
+    where
+        Self: 'a;
 
     fn serialize_comment(&mut self, _value: &str) -> Result<(), Self::Error> {
         Err(Err::unsupported_type("comment"))
@@ -231,7 +284,7 @@ where
         &mut self,
         _src: &str,
         _dst: Dst,
-    ) -> Result<Self::SerializeClass, Self::Error>
+    ) -> Result<Self::SerializeClass<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
@@ -244,7 +297,7 @@ where
         _desc: Option<&str>,
         _dst: Dst,
         _dst_desc: Option<DstDesc>,
-    ) -> Result<Self::SerializeField, Self::Error>
+    ) -> Result<Self::SerializeField<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>,
@@ -258,7 +311,7 @@ where
         _desc: Option<&str>,
         _dst: Dst,
         _dst_desc: Option<DstDesc>,
-    ) -> Result<Self::SerializeMethod, Self::Error>
+    ) -> Result<Self::SerializeMethod<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>,
@@ -272,7 +325,7 @@ where
         _dst: Option<Dst>,
         _pos: Option<usize>,
         _lv_index: Option<usize>,
-    ) -> Result<Self::SerializeMethodArg, Self::Error>
+    ) -> Result<Self::SerializeMethodArg<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
@@ -286,7 +339,7 @@ where
         _lv_index: Option<usize>,
         _lvt_row_index: Option<usize>,
         _op_idx: Option<Range<usize>>,
-    ) -> Result<Self::SerializeMethodVar, Self::Error>
+    ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {

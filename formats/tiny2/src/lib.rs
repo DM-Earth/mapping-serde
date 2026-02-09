@@ -1,15 +1,13 @@
-//! mapping-serde support for Enigma mapping format.
+//! mapping-serde support for Tiny V2 mapping format.
 
 use std::fmt::Display;
 
 mod de;
-mod ser;
 
 pub use de::Deserializer;
-pub use ser::Serializer;
 
 const INDENT: u8 = b'\t';
-const SEPARATOR: u8 = b' ';
+const SEPARATOR: u8 = b'\t';
 
 /// An error occurred in serialization or deserialization.
 #[derive(Debug)]
@@ -108,18 +106,5 @@ impl mapping_serde::ser::Error for Error {
             line: 0,
             col: 0,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    mod de;
-    mod ser;
-
-    const TEST_MAPPING: &[u8] = include_bytes!("../testset/valid.mappings");
-
-    #[test]
-    fn myth() {
-        println!(env!("PATH"));
     }
 }

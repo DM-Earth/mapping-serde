@@ -1,5 +1,5 @@
 [package]
-name = "java-mapping-serde-enigma"
+name = "java-mapping-serde-tiny2"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,11 +8,10 @@ workspace = true
 
 [dependencies]
 smol_str = "0.3"
+smallvec = "1.15"
 # workspace deps
 mapping-serde = { path = "../../", package = "java-mapping-serde" }
-io-util = { path = "../../io", package = "java-mapping-serde-io-util", features = [
-    "smol-str",
-] }
+io-util = { path = "../../io", package = "java-mapping-serde-io-util" }
 
 [dev-dependencies]
 mapping-serde-element = { path = "../element", package = "java-mapping-serde-element" }

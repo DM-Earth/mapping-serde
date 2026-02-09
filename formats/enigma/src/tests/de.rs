@@ -1,13 +1,9 @@
 use std::io::Cursor;
 
-use io_util::IoReader;
+use io_util::{ColumnReadAdapter, IoReader, SliceReader};
 use mapping_serde_element::Element;
 
-use crate::{
-    de::Deserializer,
-    io::{ColumnReadAdapter, SliceReader},
-    tests::TEST_MAPPING,
-};
+use crate::{de::Deserializer, tests::TEST_MAPPING};
 
 fn validate_elements(value: &[Element]) {
     let mut elements = value.iter();

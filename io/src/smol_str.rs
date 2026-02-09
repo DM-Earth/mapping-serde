@@ -2,12 +2,26 @@ use std::ops::Deref;
 
 use smol_str::{SmolStr, ToSmolStr as _};
 
-pub(crate) use io_util::*;
+use crate::MaybeBorrowed;
 
+/// `Cow<'_, str>` but use [`SmolStr`] as owned variant.
 #[derive(Debug, Clone)]
 pub enum SmolCowStr<'a> {
+    /// The owned variant.
     Owned(SmolStr),
+    /// The borrowed variant.
     Borrowed(&'a str),
+}
+
+impl<'a> SmolCowStr<'a> {
+    /// Returns the borrowed string if it is one.
+    #[inline]
+    pub fn as_borrowed(&self) -> Option<&'a str> {
+        match self {
+            SmolCowStr::Owned(_) => None,
+            SmolCowStr::Borrowed(a) => Some(*a),
+        }
+    }
 }
 
 impl Deref for SmolCowStr<'_> {

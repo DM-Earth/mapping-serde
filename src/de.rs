@@ -18,6 +18,11 @@ pub trait Error: core::error::Error + Sized {
     fn invalid_type(unexp: impl Display, exp: impl Display) -> Self {
         Self::custom(format_args!("invalid type: {unexp}, expected {exp}"))
     }
+
+    /// One or more fields are missing in the provided arguments during deserializer.
+    fn missing_field(field: impl Display) -> Self {
+        Self::custom(format_args!("missing field for deserializer: {field}"))
+    }
 }
 
 /// A type that can be deserialized from a [`Deserializer`].

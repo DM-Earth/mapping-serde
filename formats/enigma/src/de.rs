@@ -2,11 +2,12 @@
 
 use io_util::{
     ColumnRead, ColumnReadAdapter, ColumnReader, IoReader, MaybeBorrowed, MaybeMut, SliceReader,
+    SmolCowStr,
 };
 use mapping_serde::de::{self, Error as _};
 use smol_str::ToSmolStr as _;
 
-use crate::{Error, INDENT, SEPARATOR, io::SmolCowStr};
+use crate::{Error, INDENT, SEPARATOR};
 
 /// Enigma mapping file deserializer.
 #[derive(Debug)]
@@ -74,7 +75,7 @@ fn parse_bytes<'a, 'b>(
     b: Option<MaybeBorrowed<'a, 'b, [u8]>>,
     section: &str,
 ) -> Result<MaybeBorrowed<'a, 'b, str>, Error> {
-    b.ok_or_else(|| Error::custom(format_args!("missing {section} section")))
+    b.ok_or_else(|| Error::missing_field(section))
         .and_then(|mb| mb.try_map(str::from_utf8).map_err(Into::into))
 }
 

@@ -12,6 +12,11 @@ use std::{
 
 use memchr::memchr;
 
+#[cfg(feature = "smol-str")]
+mod smol_str;
+#[cfg(feature = "smol-str")]
+pub use smol_str::SmolCowStr;
+
 /// Reference that could have two variants of lifetime.
 #[derive(Debug, Clone, Copy)]
 pub enum MaybeBorrowed<'s, 'de: 's, T: ?Sized> {
@@ -178,7 +183,21 @@ pub trait ColumnRead<'de> {
     fn read_cols<const N: usize>(
         &mut self,
         col_separator: u8,
-    ) -> std::io::Result<[Option<MaybeBorrowed<'_, 'de, [u8]>>; N]>;
+    ) -> std::io::Result<[Option<MaybeBorrowed<'_, 'de, [u8]>>; N]> {
+        let mut arr = [const { None }; N];
+        for (a, b) in arr.iter_mut().zip(self.iter_cols(col_separator)) {
+            *a = b.ok();
+        }
+        Ok(arr)
+    }
+
+    /// Returns an iterator over columns in the current line.
+    fn iter_cols<'s>(
+        &'s mut self,
+        col_separator: u8,
+    ) -> impl Iterator<Item = std::io::Result<MaybeBorrowed<'s, 'de, [u8]>>>
+    where
+        'de: 's;
 
     /// Jumps to next line and returns the indent depth.
     fn next_line(&mut self, indent: u8) -> std::io::Result<Option<usize>>;
@@ -241,6 +260,17 @@ where
         col_separator: u8,
     ) -> std::io::Result<[Option<MaybeBorrowed<'_, 'de, [u8]>>; N]> {
         T::read_cols(self, col_separator)
+    }
+
+    #[inline]
+    fn iter_cols<'s>(
+        &'s mut self,
+        col_separator: u8,
+    ) -> impl Iterator<Item = std::io::Result<MaybeBorrowed<'s, 'de, [u8]>>>
+    where
+        'de: 's,
+    {
+        T::iter_cols(self, col_separator)
     }
 
     #[inline]
@@ -380,17 +410,16 @@ where
         Ok((*self).last_col())
     }
 
-    fn read_cols<const N: usize>(
-        &mut self,
+    fn iter_cols<'s>(
+        &'s mut self,
         col_separator: u8,
-    ) -> std::io::Result<[Option<MaybeBorrowed<'_, 'de, [u8]>>; N]> {
-        let mut arr = [const { None }; N];
+    ) -> impl Iterator<Item = std::io::Result<MaybeBorrowed<'s, 'de, [u8]>>>
+    where
+        'de: 's,
+    {
         let mut ptr = NonNull::from_mut(self);
-        for e in &mut arr {
-            // SAFETY: multiple columns coexist inside one line thus its safe
-            *e = unsafe { ptr.as_mut() }.read_col(col_separator)?;
-        }
-        Ok(arr)
+        // SAFETY: multiple columns coexist inside one line thus its safe
+        std::iter::from_fn(move || unsafe { ptr.as_mut() }.read_col(col_separator).transpose())
     }
 
     fn next_line(&mut self, indent: u8) -> std::io::Result<Option<usize>> {

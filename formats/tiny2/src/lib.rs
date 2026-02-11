@@ -32,7 +32,6 @@ enum ErrorKind {
     Io(std::io::Error),
     Utf8(std::str::Utf8Error),
     Unescape(fast_unescape::Error),
-    Unsupported(&'static str),
 }
 
 impl Display for ErrorKind {
@@ -42,7 +41,6 @@ impl Display for ErrorKind {
             Self::Io(error) => write!(f, "I/O error: {error}"),
             Self::Utf8(utf8_error) => write!(f, "utf8 conversion error: {utf8_error}"),
             Self::Unescape(error) => write!(f, "string unescape error: {error}"),
-            Self::Unsupported(msg) => write!(f, "unsupported: {msg}"),
         }
     }
 }
@@ -121,4 +119,11 @@ impl mapping_serde::ser::Error for Error {
             col: 0,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    mod de;
+
+    const TEST_MAPPING: &[u8] = include_bytes!("../testset/tinyV2.tiny");
 }

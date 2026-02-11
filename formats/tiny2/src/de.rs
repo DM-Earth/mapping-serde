@@ -100,6 +100,7 @@ where
     /// - Fails if missing source or destination namespace.
     pub fn new(read: R) -> Result<Self, Error> {
         let mut reader = ColumnReader::new(INDENT, SEPARATOR, read);
+        reader.next_line()?;
         let (major, minor) = parse_version(&mut reader)?;
         if major != 2 {
             return Err(Error::custom(format_args!(

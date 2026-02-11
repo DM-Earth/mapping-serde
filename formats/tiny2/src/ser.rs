@@ -16,6 +16,7 @@ trait ContentSpec {
 macro_rules! specs {
     ($($v:vis $s:ident: $($k:ident),*;)*) => {
         $(
+        #[derive(Debug)]
         $v struct $s;
         impl ContentSpec for $s {
             $(const $k: bool = true;)*
@@ -66,14 +67,60 @@ impl Display for MaybeEscaped<'_> {
     }
 }
 
+/// Tiny2 mapping file serializer.
+#[derive(Debug)]
 pub struct Serializer<W> {
-    writer: W,
     escaped_names: bool,
+    writer: W,
 }
 
-impl<W> Serializer<W> {
-    pub fn new(writer: W, escaped_names: bool) -> Self {
-        todo!()
+impl<W> Serializer<W>
+where
+    W: Write,
+{
+    /// Creates a new Tiny2 serializer from the given writer.
+    #[allow(clippy::missing_errors_doc)] // io errors. omitted
+    pub fn new<Dst, P, PKey, PValue>(
+        mut writer: W,
+        src: &str,
+        dst: Dst,
+        minor_version: u16,
+        props: P,
+    ) -> Result<Self, Error>
+    where
+        Dst: IntoIterator<Item: AsRef<str>>,
+        P: IntoIterator<Item = (PKey, Option<PValue>)>,
+        PKey: AsRef<str>,
+        PValue: AsRef<str>,
+    {
+        write!(writer, "tiny\t2\t{}\t{}", minor_version, src)?;
+        write_many(&mut writer, dst, false)?;
+        writeln!(writer)?;
+
+        let mut escaped_names = false;
+        let props = props.into_iter().inspect(|(k, _)| {
+            if k.as_ref() == "escaped-names" {
+                escaped_names = true
+            }
+        });
+
+        for (key, val) in props {
+            if let Some(val) = val {
+                writeln!(
+                    writer,
+                    "\t{}\t{}",
+                    key.as_ref(),
+                    val.as_ref().escape_default(),
+                )?;
+            } else {
+                writeln!(writer, "\t{}", key.as_ref())?;
+            }
+        }
+
+        Ok(Self {
+            escaped_names,
+            writer,
+        })
     }
 }
 
@@ -188,6 +235,7 @@ where
 mod _priv {
     use super::*;
 
+    #[derive(Debug)]
     pub struct ContentSerializer<'a, W, Spec> {
         pub(super) indent: usize,
         pub(super) writer: &'a mut W,
@@ -340,7 +388,7 @@ where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>,
     {
-        if S::FIELD {
+        if S::METHOD {
             let desc = desc.ok_or_else(|| Error::missing_field("method-desc-a"))?;
             write!(
                 self.writer,

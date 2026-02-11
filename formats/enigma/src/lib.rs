@@ -117,9 +117,4 @@ mod tests {
     mod ser;
 
     const TEST_MAPPING: &[u8] = include_bytes!("../testset/valid.mappings");
-
-    #[test]
-    fn myth() {
-        println!(env!("PATH"));
-    }
 }

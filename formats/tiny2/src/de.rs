@@ -2,7 +2,9 @@ use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
 use fast_unescape::try_unescape;
 use io_util::{ColumnRead, ColumnReader, MaybeBorrowed, SmolCowStr};
-use mapping_serde::de::{self, Error as _, FieldAccess};
+use mapping_serde::de::{
+    self, Error as _, FieldAccess, MethodAccess, MethodArgAccess, MethodVarAccess,
+};
 use smallvec::SmallVec;
 use smol_str::{SmolStr, ToSmolStr as _};
 
@@ -42,7 +44,7 @@ pub struct Deserializer<R> {
 
     props: HashMap<SmolStr, Option<SmolStr>>,
     escaped_names: bool,
-    missing_lvt_indices: bool,
+    // missing_lvt_indices: bool,
 }
 
 #[inline]
@@ -52,6 +54,24 @@ fn parse_bytes<'a, 'b>(
 ) -> Result<MaybeBorrowed<'a, 'b, str>, Error> {
     b.ok_or_else(|| Error::missing_field(section))
         .and_then(|mb| mb.try_map(str::from_utf8).map_err(Into::into))
+}
+
+fn parse_dst<'de, R>(
+    read: &mut ColumnReader<R>,
+    escaped_names: bool,
+) -> Result<SmallVec<[SmolCowStr<'de>; 2]>, Error>
+where
+    R: ColumnRead<'de>,
+{
+    let mut dst: SmallVec<[_; 2]> = SmallVec::new();
+    while let Some(b) = read.read_col()? {
+        dst.push(
+            b.try_map(str::from_utf8)
+                .map_err(Into::into)
+                .and_then(|b| make_smol_cow_str(b, escaped_names))?,
+        );
+    }
+    Ok(dst)
 }
 
 fn parse_names<'de, R>(
@@ -64,14 +84,7 @@ where
 {
     let src = parse_bytes(read.read_col()?, src_field)
         .and_then(|b| make_smol_cow_str(b, escaped_names))?;
-    let mut dst: SmallVec<[_; 2]> = SmallVec::new();
-    while let Some(b) = read.read_col()? {
-        dst.push(
-            b.try_map(str::from_utf8)
-                .map_err(Into::into)
-                .and_then(|b| make_smol_cow_str(b, escaped_names))?,
-        );
-    }
+    let dst = parse_dst(read, escaped_names)?;
     Ok((src, dst))
 }
 
@@ -109,12 +122,17 @@ where
                         .transpose()
                 })?
                 .map(SmolStr::new);
-            let val = reader.read_col().map_err(Error::from).and_then(|mb| {
-                mb.map(|mb| mb.try_map(str::from_utf8).map_err(Into::into))
-                    .transpose()
-            })?;
+            let val = reader
+                .read_col()
+                .map_err(Error::from)
+                .and_then(|mb| {
+                    mb.map(|mb| mb.try_map(str::from_utf8).map_err(Into::into))
+                        .transpose()
+                })?
+                .map(|s| try_unescape(&s).map(SmolStr::new))
+                .transpose()?;
             if let Some(key) = key {
-                props.insert(key, val.map(SmolStr::new));
+                props.insert(key, val);
             }
         }
 
@@ -125,8 +143,7 @@ where
             read: reader,
 
             escaped_names: props.contains_key("escaped-names"),
-            missing_lvt_indices: props.contains_key("missing-lvt-indices"),
-
+            // missing_lvt_indices: props.contains_key("missing-lvt-indices"),
             props,
         })
     }
@@ -143,7 +160,7 @@ impl<R> Deserializer<R> {
             src: &self.src,
             dst: &self.dst,
             escaped_names: self.escaped_names,
-            missing_lvt_indices: self.missing_lvt_indices,
+            // missing_lvt_indices: self.missing_lvt_indices,
             read: &mut self.read,
         }
     }
@@ -197,7 +214,7 @@ struct LocalCx<'a, R> {
     src: &'a str,
     dst: &'a SmallVec<[SmolStr; 2]>,
     escaped_names: bool,
-    missing_lvt_indices: bool,
+    // missing_lvt_indices: bool,
     read: &'a mut ColumnReader<R>,
 }
 
@@ -209,7 +226,7 @@ impl<R> LocalCx<'_, R> {
             src: self.src,
             dst: self.dst,
             escaped_names: self.escaped_names,
-            missing_lvt_indices: self.missing_lvt_indices,
+            // missing_lvt_indices: self.missing_lvt_indices,
             read: self.read,
         }
     }
@@ -367,8 +384,8 @@ where
         {
             match local {
                 SibKind::Comment => deserialize_comment_impl(visitor, cx),
-                SibKind::Field => deserialize_field_impl(visitor, self.indent + 1, cx),
-                SibKind::Method => todo!(),
+                SibKind::Field => deserialize_field_impl(visitor, self.indent, cx),
+                SibKind::Method => deserialize_method_impl(visitor, self.indent, cx),
             }
         }
     }
@@ -404,7 +421,7 @@ where
         indent: indent + 1,
         aborted: false,
         cx,
-        spec: ClassSpec { indent },
+        spec: ClassSpec { indent: indent + 1 },
     };
 
     if let SmolCowStr::Borrowed(src) = &src
@@ -427,12 +444,16 @@ where
 {
     let comment = cx
         .read
-        .read_col()?
+        .this_line()
         .unwrap_or(MaybeBorrowed::Borrowed(b""))
         .try_map(str::from_utf8)?;
+
     match comment {
-        MaybeBorrowed::Short(c) => visitor.visit_comment(c),
-        MaybeBorrowed::Borrowed(c) => visitor.visit_comment_borrowed(c),
+        MaybeBorrowed::Short(c) => visitor.visit_comment(&try_unescape(c)?),
+        MaybeBorrowed::Borrowed(c) => match try_unescape(c)? {
+            Cow::Borrowed(c) => visitor.visit_comment_borrowed(c),
+            Cow::Owned(c) => visitor.visit_comment(&c),
+        },
     }
 }
 
@@ -463,7 +484,6 @@ where
         R: ColumnRead<'de>,
     {
         type Error = Error;
-
         type ContentDeserializer = ContentDeserializer<'d, R, FieldSpec>;
 
         #[inline]
@@ -509,6 +529,341 @@ where
             desc: &desc,
             src: &src,
             dst: dst.iter().map(Deref::deref).collect(),
+            deser,
+        })
+    }
+}
+
+fn deserialize_method_impl<'de, R, V>(
+    visitor: V,
+    indent: usize,
+    cx: LocalCx<'_, R>,
+) -> Result<V::Value, Error>
+where
+    V: de::Visitor<'de>,
+    R: ColumnRead<'de>,
+{
+    let desc = parse_bytes(cx.read.read_col()?, "field-desc-a")
+        .and_then(|b| make_smol_cow_str(b, cx.escaped_names))?;
+    let (src, dst) = parse_names(&mut *cx.read, "field-name-a", cx.escaped_names)?;
+
+    enum SibKind {
+        Comment,
+        Param,
+        Var,
+    }
+
+    struct MethodSpec {
+        indent: usize,
+    }
+
+    impl<'de, R> ContentSpec<'de, R> for MethodSpec
+    where
+        R: ColumnRead<'de>,
+    {
+        type Context = SibKind;
+
+        fn process(&mut self, ty: &[u8]) -> Result<Self::Context, Error> {
+            match ty {
+                b"c" => Ok(SibKind::Comment),
+                b"p" => Ok(SibKind::Param),
+                b"v" => Ok(SibKind::Var),
+                _ => Err(Error::invalid_type(
+                    String::from_utf8_lossy(ty),
+                    "c(comment), p, v",
+                )),
+            }
+        }
+
+        fn visit<V>(
+            &mut self,
+            local: Self::Context,
+            visitor: V,
+            cx: LocalCx<'_, R>,
+        ) -> Result<V::Value, Error>
+        where
+            V: de::Visitor<'de>,
+        {
+            match local {
+                SibKind::Comment => deserialize_comment_impl(visitor, cx),
+                SibKind::Param => deserialize_method_param_impl(visitor, self.indent, cx),
+                SibKind::Var => deserialize_method_var_impl(visitor, self.indent, cx),
+            }
+        }
+    }
+
+    struct Method<'env, 'd, R> {
+        desc: &'env str,
+        src: &'env str,
+        dst: SmallVec<[&'env str; 2]>,
+        deser: ContentDeserializer<'d, R, MethodSpec>,
+    }
+
+    impl<'de, 'env, 'd, R> MethodAccess<'de, 'env> for Method<'env, 'd, R>
+    where
+        R: ColumnRead<'de>,
+    {
+        type Error = Error;
+        type ContentDeserializer = ContentDeserializer<'d, R, MethodSpec>;
+
+        #[inline]
+        fn src(&self) -> &'env str {
+            self.src
+        }
+        #[inline]
+        fn dst(&self) -> impl Iterator<Item = &'env str> {
+            self.dst.iter().copied()
+        }
+        #[inline]
+        fn desc(&self) -> Option<&'env str> {
+            Some(self.desc)
+        }
+        #[inline]
+        fn dst_desc(&self) -> Option<impl Iterator<Item = &'env str>> {
+            None::<std::iter::Empty<_>>
+        }
+        #[inline]
+        fn content(self) -> Self::ContentDeserializer {
+            self.deser
+        }
+    }
+
+    let deser = ContentDeserializer {
+        indent: indent + 1,
+        aborted: false,
+        cx,
+        spec: MethodSpec { indent: indent + 1 },
+    };
+
+    if let (SmolCowStr::Borrowed(desc), SmolCowStr::Borrowed(src)) = (&desc, &src)
+        && let Some(dst) = try_borrow_many(&dst)
+    {
+        visitor.visit_method_borrowed(Method {
+            desc,
+            src,
+            dst,
+            deser,
+        })
+    } else {
+        visitor.visit_method(Method {
+            desc: &desc,
+            src: &src,
+            dst: dst.iter().map(Deref::deref).collect(),
+            deser,
+        })
+    }
+}
+
+fn deserialize_method_param_impl<'de, R, V>(
+    visitor: V,
+    indent: usize,
+    cx: LocalCx<'_, R>,
+) -> Result<V::Value, Error>
+where
+    V: de::Visitor<'de>,
+    R: ColumnRead<'de>,
+{
+    let lv_index = parse_bytes(cx.read.read_col()?, "lv-index").and_then(|s| {
+        s.parse::<usize>()
+            .map_err(|err| Error::invalid_type(format_args!("error: {err}"), "unsigned integer"))
+    })?;
+
+    // below are all optional
+    let src = cx
+        .read
+        .read_col()?
+        .map(|b| {
+            b.try_map(str::from_utf8)
+                .map_err(Into::into)
+                .and_then(|b| make_smol_cow_str(b, cx.escaped_names))
+        })
+        .transpose()?;
+    let dst: Option<SmallVec<[_; 2]>> = if src.is_some() {
+        Some(parse_dst(&mut *cx.read, cx.escaped_names)?)
+    } else {
+        None
+    };
+
+    type MethodParamSpec = CommentOnlySpec;
+
+    struct MethodParam<'env, 'd, R> {
+        lv_index: usize,
+        src: Option<&'env str>,
+        dst: Option<SmallVec<[&'env str; 2]>>,
+        deser: ContentDeserializer<'d, R, MethodParamSpec>,
+    }
+
+    impl<'de, 'env, 'd, R> MethodArgAccess<'de, 'env> for MethodParam<'env, 'd, R>
+    where
+        R: ColumnRead<'de>,
+    {
+        type Error = Error;
+        type ContentDeserializer = ContentDeserializer<'d, R, MethodParamSpec>;
+
+        #[inline]
+        fn src(&self) -> Option<&'env str> {
+            self.src
+        }
+        #[inline]
+        fn dst(&self) -> Option<impl Iterator<Item = &'env str>> {
+            self.dst.as_deref().map(|d| d.iter().copied())
+        }
+        #[inline]
+        fn pos(&self) -> Option<usize> {
+            None
+        }
+        #[inline]
+        fn lv_index(&self) -> Option<usize> {
+            Some(self.lv_index)
+        }
+        #[inline]
+        fn content(self) -> Self::ContentDeserializer {
+            self.deser
+        }
+    }
+
+    let deser = ContentDeserializer {
+        indent: indent + 1,
+        aborted: false,
+        cx,
+        spec: CommentOnlySpec,
+    };
+
+    if let (Some(SmolCowStr::Borrowed(src)), Some(dst)) = (&src, &dst)
+        && let dst @ Some(_) = try_borrow_many(dst)
+    {
+        visitor.visit_method_arg_borrowed(MethodParam {
+            lv_index,
+            src: Some(src),
+            dst,
+            deser,
+        })
+    } else {
+        visitor.visit_method_arg(MethodParam {
+            lv_index,
+            src: src.as_deref(),
+            dst: dst
+                .as_ref()
+                .map(|dst| dst.iter().map(Deref::deref).collect()),
+            deser,
+        })
+    }
+}
+
+fn deserialize_method_var_impl<'de, R, V>(
+    visitor: V,
+    indent: usize,
+    cx: LocalCx<'_, R>,
+) -> Result<V::Value, Error>
+where
+    V: de::Visitor<'de>,
+    R: ColumnRead<'de>,
+{
+    let lv_index = parse_bytes(cx.read.read_col()?, "lv-index").and_then(|s| {
+        s.parse::<usize>()
+            .map_err(|err| Error::invalid_type(format_args!("error: {err}"), "unsigned integer"))
+    })?;
+    let lv_start_offset = parse_bytes(cx.read.read_col()?, "lv-start-offset").and_then(|s| {
+        s.parse::<usize>()
+            .map_err(|err| Error::invalid_type(format_args!("error: {err}"), "unsigned integer"))
+    })?;
+    let lvt_index = {
+        let b = parse_bytes(cx.read.read_col()?, "lv-start-offset")?;
+        if &b == "-1" {
+            None
+        } else {
+            Some(b.parse::<usize>().map_err(|err| {
+                Error::invalid_type(format_args!("error: {err}"), "unsigned integer")
+            })?)
+        }
+    };
+
+    let src = cx
+        .read
+        .read_col()?
+        .map(|b| {
+            b.try_map(str::from_utf8)
+                .map_err(Into::into)
+                .and_then(|b| make_smol_cow_str(b, cx.escaped_names))
+        })
+        .transpose()?;
+    let dst: Option<SmallVec<[_; 2]>> = if src.is_some() {
+        Some(parse_dst(&mut *cx.read, cx.escaped_names)?)
+    } else {
+        None
+    };
+
+    type MethodVarSpec = CommentOnlySpec;
+
+    struct MethodVar<'env, 'd, R> {
+        lv_index: usize,
+        lv_start_offset: usize,
+        lvt_index: Option<usize>,
+        src: Option<&'env str>,
+        dst: Option<SmallVec<[&'env str; 2]>>,
+        deser: ContentDeserializer<'d, R, MethodVarSpec>,
+    }
+
+    impl<'de, 'env, 'd, R> MethodVarAccess<'de, 'env> for MethodVar<'env, 'd, R>
+    where
+        R: ColumnRead<'de>,
+    {
+        type Error = Error;
+        type ContentDeserializer = ContentDeserializer<'d, R, MethodVarSpec>;
+
+        #[inline]
+        fn src(&self) -> Option<&'env str> {
+            self.src
+        }
+        #[inline]
+        fn dst(&self) -> Option<impl Iterator<Item = &'env str>> {
+            self.dst.as_deref().map(|dst| dst.iter().copied())
+        }
+        #[inline]
+        fn lv_index(&self) -> Option<usize> {
+            Some(self.lv_index)
+        }
+        #[inline]
+        fn lvt_row_index(&self) -> Option<usize> {
+            self.lvt_index
+        }
+        #[inline]
+        fn op_idx(&self) -> Option<(usize, Option<usize>)> {
+            Some((self.lv_start_offset, None))
+        }
+        #[inline]
+        fn content(self) -> Self::ContentDeserializer {
+            self.deser
+        }
+    }
+
+    let deser = ContentDeserializer {
+        indent: indent + 1,
+        aborted: false,
+        cx,
+        spec: CommentOnlySpec,
+    };
+
+    if let (Some(SmolCowStr::Borrowed(src)), Some(dst)) = (&src, &dst)
+        && let dst @ Some(_) = try_borrow_many(dst)
+    {
+        visitor.visit_method_var_borrowed(MethodVar {
+            lv_index,
+            lv_start_offset,
+            lvt_index,
+            src: Some(src),
+            dst,
+            deser,
+        })
+    } else {
+        visitor.visit_method_var(MethodVar {
+            lv_index,
+            lv_start_offset,
+            lvt_index,
+            src: src.as_deref(),
+            dst: dst
+                .as_ref()
+                .map(|dst| dst.iter().map(Deref::deref).collect()),
             deser,
         })
     }

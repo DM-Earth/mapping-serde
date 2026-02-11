@@ -3,8 +3,10 @@
 use std::fmt::Display;
 
 mod de;
+mod ser;
 
 pub use de::Deserializer;
+pub use ser::Serializer;
 
 const INDENT: u8 = b'\t';
 const SEPARATOR: u8 = b'\t';

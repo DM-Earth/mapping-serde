@@ -188,7 +188,7 @@ where
         _dst: Option<Dst>,
         _lv_index: Option<usize>,
         _lvt_row_index: Option<usize>,
-        _op_idx: Option<std::ops::Range<usize>>,
+        _op_idx: Option<(usize, Option<usize>)>,
     ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,

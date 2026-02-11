@@ -1,9 +1,6 @@
 //! Mapping visit traits.
 
-use core::{
-    fmt::{Display, Formatter},
-    ops::Range,
-};
+use core::fmt::{Display, Formatter};
 
 use crate::de::Deserializer;
 
@@ -313,7 +310,7 @@ pub trait MethodVarAccess<'de, 's> {
     /// > not re-define the existing var, but instead generate a new one (with both sharing the same `lv_index`).
     ///
     /// (from `mapping-io`)
-    fn op_idx(&self) -> Option<Range<usize>>;
+    fn op_idx(&self) -> Option<(usize, Option<usize>)>;
 
     /// Returns the content deserializer for further deserialization of this method.
     ///

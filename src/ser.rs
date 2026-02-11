@@ -1,6 +1,6 @@
 //! Serialization.
 
-use core::{fmt::Display, marker::PhantomData, ops::Range};
+use core::{fmt::Display, marker::PhantomData};
 
 mod r#impl;
 
@@ -73,6 +73,9 @@ pub trait Serializer {
     where
         Self: 'a;
 
+    #[doc(hidden)]
+    const __IS_IMPOSSIBLE: bool = false;
+
     /// Serializes a comment literal.
     fn serialize_comment(&mut self, value: &str) -> Result<(), Self::Error>;
 
@@ -127,7 +130,7 @@ pub trait Serializer {
         dst: Option<Dst>,
         lv_index: Option<usize>,
         lvt_row_index: Option<usize>,
-        op_idx: Option<Range<usize>>,
+        op_idx: Option<(usize, Option<usize>)>,
     ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>;
@@ -163,6 +166,8 @@ where
         = T::SerializeMethodVar<'a>
     where
         Self: 'a;
+
+    const __IS_IMPOSSIBLE: bool = T::__IS_IMPOSSIBLE;
 
     #[inline]
     fn serialize_comment(&mut self, value: &str) -> Result<(), Self::Error> {
@@ -232,7 +237,7 @@ where
         dst: Option<Dst>,
         lv_index: Option<usize>,
         lvt_row_index: Option<usize>,
-        op_idx: Option<Range<usize>>,
+        op_idx: Option<(usize, Option<usize>)>,
     ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
@@ -275,6 +280,8 @@ where
         = Self
     where
         Self: 'a;
+
+    const __IS_IMPOSSIBLE: bool = true;
 
     fn serialize_comment(&mut self, _value: &str) -> Result<(), Self::Error> {
         Err(Err::unsupported_type("comment"))
@@ -338,11 +345,20 @@ where
         _dst: Option<Dst>,
         _lv_index: Option<usize>,
         _lvt_row_index: Option<usize>,
-        _op_idx: Option<Range<usize>>,
+        _op_idx: Option<(usize, Option<usize>)>,
     ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
         Err(Err::unsupported_type("method variable"))
     }
+}
+
+/// Whether the serializer type is [`Impossible`] or its derivations.
+#[inline]
+pub const fn is_impossible<S>() -> bool
+where
+    S: Serializer,
+{
+    S::__IS_IMPOSSIBLE
 }

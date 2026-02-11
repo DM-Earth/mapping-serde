@@ -1,5 +1,3 @@
-use core::ops::Range;
-
 use alloc::boxed::Box;
 use mapping_serde::{
     Deserialize, Serialize,
@@ -151,7 +149,7 @@ pub struct MethodVar {
     pub dst: Option<Box<[SmolStr]>>,
     pub lv_index: Option<usize>,
     pub lvt_row_index: Option<usize>,
-    pub op_idx: Option<Range<usize>>,
+    pub op_idx: Option<(usize, Option<usize>)>,
     pub content: Box<[Element]>,
 }
 
@@ -181,7 +179,7 @@ impl Serialize for MethodVar {
             self.dst.as_ref().map(|d| d.iter().map(|s| &**s)),
             self.lv_index,
             self.lvt_row_index,
-            self.op_idx.clone(),
+            self.op_idx,
         )?;
         self.content.serialize(var_ser)
     }

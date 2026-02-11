@@ -1,7 +1,8 @@
-use std::{collections::HashMap, ops::Deref};
+use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
+use fast_unescape::try_unescape;
 use io_util::{ColumnRead, ColumnReader, MaybeBorrowed, SmolCowStr};
-use mapping_serde::de::{self, Error as _};
+use mapping_serde::de::{self, Error as _, FieldAccess};
 use smallvec::SmallVec;
 use smol_str::{SmolStr, ToSmolStr as _};
 
@@ -56,14 +57,20 @@ fn parse_bytes<'a, 'b>(
 fn parse_names<'de, R>(
     read: &mut ColumnReader<R>,
     src_field: &str,
+    escaped_names: bool, // defaults to false
 ) -> Result<(SmolCowStr<'de>, SmallVec<[SmolCowStr<'de>; 2]>), Error>
 where
     R: ColumnRead<'de>,
 {
-    let src = SmolCowStr::from(parse_bytes(read.read_col()?, src_field)?);
+    let src = parse_bytes(read.read_col()?, src_field)
+        .and_then(|b| make_smol_cow_str(b, escaped_names))?;
     let mut dst: SmallVec<[_; 2]> = SmallVec::new();
     while let Some(b) = read.read_col()? {
-        dst.push(SmolCowStr::from(b.try_map(str::from_utf8)?));
+        dst.push(
+            b.try_map(str::from_utf8)
+                .map_err(Into::into)
+                .and_then(|b| make_smol_cow_str(b, escaped_names))?,
+        );
     }
     Ok((src, dst))
 }
@@ -87,7 +94,7 @@ where
             )));
         }
 
-        let (src, dst) = parse_names(&mut reader, "namespace-a")?;
+        let (src, dst) = parse_names(&mut reader, "namespace-a", false)?;
         if dst.is_empty() {
             return Err(Error::missing_field("namespace-b"));
         }
@@ -176,9 +183,9 @@ where
     Ok(true)
 }
 
-fn try_borrow_dst<'de>(dst: &SmallVec<[SmolCowStr<'de>; 2]>) -> Option<SmallVec<[&'de str; 2]>> {
-    dst.iter().map(SmolCowStr::as_borrowed).try_fold(
-        SmallVec::with_capacity(dst.capacity()),
+fn try_borrow_many<'de>(many: &[SmolCowStr<'de>]) -> Option<SmallVec<[&'de str; 2]>> {
+    many.iter().map(SmolCowStr::as_borrowed).try_fold(
+        SmallVec::with_capacity(many.len()),
         |mut sv, s| {
             sv.push(s?);
             Some(sv)
@@ -208,6 +215,108 @@ impl<R> LocalCx<'_, R> {
     }
 }
 
+trait ContentSpec<'de, R> {
+    type Context;
+
+    #[allow(clippy::type_complexity)]
+    fn process(&mut self, ty: &[u8]) -> Result<Self::Context, Error>;
+
+    fn visit<V>(
+        &mut self,
+        local: Self::Context,
+        visitor: V,
+        cx: LocalCx<'_, R>,
+    ) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>;
+}
+
+struct CommentOnlySpec;
+
+impl<'de, R> ContentSpec<'de, R> for CommentOnlySpec
+where
+    R: ColumnRead<'de>,
+{
+    type Context = ();
+
+    fn process(&mut self, ty: &[u8]) -> Result<Self::Context, Error> {
+        if ty == b"c" {
+            Ok(())
+        } else {
+            Err(Error::invalid_type(
+                String::from_utf8_lossy(ty),
+                "c(comment)",
+            ))
+        }
+    }
+
+    fn visit<V>(
+        &mut self,
+        _local: Self::Context,
+        visitor: V,
+        cx: LocalCx<'_, R>,
+    ) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        deserialize_comment_impl(visitor, cx)
+    }
+}
+
+struct ContentDeserializer<'a, R, S> {
+    indent: usize,
+    aborted: bool,
+    cx: LocalCx<'a, R>,
+    spec: S,
+}
+
+impl<'de, R, S> ContentDeserializer<'_, R, S>
+where
+    R: ColumnRead<'de>,
+    S: ContentSpec<'de, R>,
+{
+    fn deserialize_impl<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if !fetch_line_impl(self.indent, &mut self.aborted, self.cx.read)? {
+            return Ok(None);
+        }
+        let ty = self.cx.read.read_col()?;
+        let ty = ty.as_deref().unwrap_or_default();
+
+        self.spec
+            .process(ty)
+            .and_then(|l| self.spec.visit(l, visitor, self.cx.reclaim()))
+            .map(Some)
+    }
+}
+
+impl<'de, R, S> de::Deserializer<'de> for ContentDeserializer<'_, R, S>
+where
+    R: ColumnRead<'de>,
+    S: ContentSpec<'de, R>,
+{
+    type Error = Error;
+
+    #[inline]
+    fn src_namespace(&self) -> &str {
+        self.cx.src
+    }
+    #[inline]
+    fn dst_namespaces(&self) -> impl Iterator<Item = &str> {
+        self.cx.dst.iter().map(Deref::deref)
+    }
+    #[inline]
+    fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_impl(visitor)
+            .map_err(|err| err.with_loc(self.cx.read.line(), self.cx.read.col()))
+    }
+}
+
 fn deserialize_class_impl<'de, R, V>(
     visitor: V,
     indent: usize,
@@ -217,69 +326,57 @@ where
     V: de::Visitor<'de>,
     R: ColumnRead<'de>,
 {
-    // class-name-b is optional
-    let (src, dst) = parse_names(cx.read, "class-name-a")?;
+    let (src, dst) = parse_names(cx.read, "class-name-a", cx.escaped_names)?;
 
-    struct ContentDeserializer<'a, R> {
+    struct ClassSpec {
         indent: usize,
-        aborted: bool,
-        cx: LocalCx<'a, R>,
     }
 
-    impl<'de, R> ContentDeserializer<'_, R>
+    enum SibKind {
+        Comment,
+        Field,
+        Method,
+    }
+
+    impl<'de, R> ContentSpec<'de, R> for ClassSpec
     where
         R: ColumnRead<'de>,
     {
-        fn deserialize_impl<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Error>
-        where
-            V: de::Visitor<'de>,
-        {
-            if !fetch_line_impl(self.indent, &mut self.aborted, self.cx.read)? {
-                return Ok(None);
-            }
-            let ty = self.cx.read.read_col()?;
-            let ty = ty.as_deref().unwrap_or_default();
+        type Context = SibKind;
 
+        fn process(&mut self, ty: &[u8]) -> Result<Self::Context, Error> {
             match ty {
-                b"c" => deserialize_comment_impl(visitor, self.cx.reclaim()),
-                // TODO: field, method
+                b"c" => Ok(SibKind::Comment),
+                b"f" => Ok(SibKind::Field),
+                b"m" => Ok(SibKind::Method),
                 _ => Err(Error::invalid_type(
                     String::from_utf8_lossy(ty),
                     "c(comment), f, m",
                 )),
             }
-            .map(Some)
         }
-    }
 
-    impl<'de, R> de::Deserializer<'de> for ContentDeserializer<'_, R>
-    where
-        R: ColumnRead<'de>,
-    {
-        type Error = Error;
-
-        #[inline]
-        fn src_namespace(&self) -> &str {
-            self.cx.src
-        }
-        #[inline]
-        fn dst_namespaces(&self) -> impl Iterator<Item = &str> {
-            self.cx.dst.iter().map(Deref::deref)
-        }
-        #[inline]
-        fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
+        fn visit<V>(
+            &mut self,
+            local: Self::Context,
+            visitor: V,
+            cx: LocalCx<'_, R>,
+        ) -> Result<V::Value, Error>
         where
             V: de::Visitor<'de>,
         {
-            self.deserialize_impl(visitor)
-                .map_err(|err| err.with_loc(self.cx.read.line(), self.cx.read.col()))
+            match local {
+                SibKind::Comment => deserialize_comment_impl(visitor, cx),
+                SibKind::Field => deserialize_field_impl(visitor, self.indent + 1, cx),
+                SibKind::Method => todo!(),
+            }
         }
     }
 
     struct Class<'env, 'd, R> {
         src: &'env str,
         dst: SmallVec<[&'env str; 2]>,
-        deser: ContentDeserializer<'d, R>,
+        deser: ContentDeserializer<'d, R, ClassSpec>,
     }
 
     impl<'de, 'env, 'd, R> de::ClassAccess<'de, 'env> for Class<'env, 'd, R>
@@ -287,7 +384,7 @@ where
         R: ColumnRead<'de>,
     {
         type Error = Error;
-        type ContentDeserializer = ContentDeserializer<'d, R>;
+        type ContentDeserializer = ContentDeserializer<'d, R, ClassSpec>;
 
         #[inline]
         fn src(&self) -> &'env str {
@@ -303,25 +400,22 @@ where
         }
     }
 
-    if let (SmolCowStr::Borrowed(src), Some(dst)) = (&src, try_borrow_dst(&dst)) {
-        visitor.visit_class_borrowed(Class {
-            src,
-            dst,
-            deser: ContentDeserializer {
-                indent: indent + 1,
-                aborted: false,
-                cx,
-            },
-        })
+    let deser = ContentDeserializer {
+        indent: indent + 1,
+        aborted: false,
+        cx,
+        spec: ClassSpec { indent },
+    };
+
+    if let SmolCowStr::Borrowed(src) = &src
+        && let Some(dst) = try_borrow_many(&dst)
+    {
+        visitor.visit_class_borrowed(Class { src, dst, deser })
     } else {
         visitor.visit_class(Class {
             src: &src,
             dst: dst.iter().map(Deref::deref).collect(),
-            deser: ContentDeserializer {
-                indent: indent + 1,
-                aborted: false,
-                cx,
-            },
+            deser,
         })
     }
 }
@@ -339,6 +433,84 @@ where
     match comment {
         MaybeBorrowed::Short(c) => visitor.visit_comment(c),
         MaybeBorrowed::Borrowed(c) => visitor.visit_comment_borrowed(c),
+    }
+}
+
+fn deserialize_field_impl<'de, R, V>(
+    visitor: V,
+    indent: usize,
+    cx: LocalCx<'_, R>,
+) -> Result<V::Value, Error>
+where
+    V: de::Visitor<'de>,
+    R: ColumnRead<'de>,
+{
+    let desc = parse_bytes(cx.read.read_col()?, "field-desc-a")
+        .and_then(|b| make_smol_cow_str(b, cx.escaped_names))?;
+    let (src, dst) = parse_names(&mut *cx.read, "field-name-a", cx.escaped_names)?;
+
+    type FieldSpec = CommentOnlySpec;
+
+    struct Field<'env, 'd, R> {
+        desc: &'env str,
+        src: &'env str,
+        dst: SmallVec<[&'env str; 2]>,
+        deser: ContentDeserializer<'d, R, FieldSpec>,
+    }
+
+    impl<'de, 'env, 'd, R> FieldAccess<'de, 'env> for Field<'env, 'd, R>
+    where
+        R: ColumnRead<'de>,
+    {
+        type Error = Error;
+
+        type ContentDeserializer = ContentDeserializer<'d, R, FieldSpec>;
+
+        #[inline]
+        fn src(&self) -> &'env str {
+            self.src
+        }
+        #[inline]
+        fn dst(&self) -> impl Iterator<Item = &'env str> {
+            self.dst.iter().copied()
+        }
+        #[inline]
+        fn desc(&self) -> Option<&'env str> {
+            Some(self.desc)
+        }
+        #[inline]
+        fn dst_desc(&self) -> Option<impl Iterator<Item = &'env str>> {
+            None::<std::iter::Empty<_>>
+        }
+        #[inline]
+        fn content(self) -> Self::ContentDeserializer {
+            self.deser
+        }
+    }
+
+    let deser = ContentDeserializer {
+        indent: indent + 1,
+        aborted: false,
+        cx,
+        spec: CommentOnlySpec,
+    };
+
+    if let (SmolCowStr::Borrowed(desc), SmolCowStr::Borrowed(src)) = (&desc, &src)
+        && let Some(dst) = try_borrow_many(&dst)
+    {
+        visitor.visit_field_borrowed(Field {
+            desc,
+            src,
+            dst,
+            deser,
+        })
+    } else {
+        visitor.visit_field(Field {
+            desc: &desc,
+            src: &src,
+            dst: dst.iter().map(Deref::deref).collect(),
+            deser,
+        })
     }
 }
 
@@ -387,5 +559,31 @@ where
     {
         self.deserialize_impl(visitor)
             .map_err(|err| err.with_loc(self.read.line(), self.read.col()))
+    }
+}
+
+// utilities
+
+fn make_smol_cow_str_unescape<'de>(
+    src: MaybeBorrowed<'_, 'de, str>,
+) -> Result<SmolCowStr<'de>, Error> {
+    match src {
+        MaybeBorrowed::Short(src) => Ok(SmolCowStr::Owned(try_unescape(src)?.into())),
+        MaybeBorrowed::Borrowed(src) => match try_unescape(src)? {
+            Cow::Borrowed(b) => Ok(SmolCowStr::Borrowed(b)),
+            Cow::Owned(o) => Ok(SmolCowStr::Owned(o.into())),
+        },
+    }
+}
+
+#[inline]
+fn make_smol_cow_str<'de>(
+    src: MaybeBorrowed<'_, 'de, str>,
+    escaped_names: bool,
+) -> Result<SmolCowStr<'de>, Error> {
+    if escaped_names {
+        make_smol_cow_str_unescape(src)
+    } else {
+        Ok(SmolCowStr::from(src))
     }
 }

@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{borrow::Cow, ops::Deref};
 
 use smol_str::{SmolStr, ToSmolStr as _};
 
@@ -49,6 +49,16 @@ impl<'de> From<MaybeBorrowed<'_, 'de, str>> for SmolCowStr<'de> {
         match value {
             MaybeBorrowed::Short(s) => SmolCowStr::Owned(s.to_smolstr()),
             MaybeBorrowed::Borrowed(b) => SmolCowStr::Borrowed(b),
+        }
+    }
+}
+
+impl<'de> From<Cow<'de, str>> for SmolCowStr<'de> {
+    #[inline]
+    fn from(value: Cow<'de, str>) -> Self {
+        match value {
+            Cow::Borrowed(b) => SmolCowStr::Borrowed(b),
+            Cow::Owned(o) => SmolCowStr::Owned(o.into()),
         }
     }
 }

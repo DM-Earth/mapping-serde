@@ -545,6 +545,20 @@ where
         Ok(cols)
     }
 
+    /// Returns an iterator over columns in the current line.
+    pub fn iter_cols<'s>(
+        &'s mut self,
+    ) -> impl Iterator<Item = std::io::Result<MaybeBorrowed<'s, 'de, [u8]>>>
+    where
+        'de: 's,
+    {
+        self.inner.iter_cols(self.col_separator).inspect(|b| {
+            if b.is_ok() {
+                self.col += 1
+            }
+        })
+    }
+
     /// Jumps to next line and returns the indent depth.
     pub fn next_line(&mut self) -> std::io::Result<Option<usize>> {
         while let Some(indent) = self.inner.next_line(self.indent)? {

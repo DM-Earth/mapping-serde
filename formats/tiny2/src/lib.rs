@@ -11,6 +11,8 @@ pub use ser::Serializer;
 const INDENT: u8 = b'\t';
 const SEPARATOR: u8 = b'\t';
 
+const DST_INLINE: usize = 2;
+
 /// The property key for marking item names as 'escaped'.
 pub const PROPERTY_ESCAPED_NAMES: &str = "escaped-names";
 

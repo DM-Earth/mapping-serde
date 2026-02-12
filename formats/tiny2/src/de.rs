@@ -10,7 +10,7 @@ use mapping_serde::de::{
 use smallvec::SmallVec;
 use smol_str::{SmolStr, ToSmolStr as _};
 
-use crate::{Error, INDENT, PROPERTY_ESCAPED_NAMES, SEPARATOR};
+use crate::{DST_INLINE, Error, INDENT, PROPERTY_ESCAPED_NAMES, SEPARATOR};
 
 fn parse_version<'de, R>(reader: &mut ColumnReader<R>) -> Result<(u16, u16), Error>
 where
@@ -40,7 +40,7 @@ where
 #[derive(Debug)]
 pub struct Deserializer<R> {
     src: SmolStr,
-    dst: SmallVec<[SmolStr; 2]>,
+    dst: SmallVec<[SmolStr; DST_INLINE]>,
     aborted: bool,
     read: ColumnReader<R>,
 
@@ -61,11 +61,11 @@ fn parse_bytes<'a, 'b>(
 fn parse_dst<'de, R>(
     read: &mut ColumnReader<R>,
     escaped_names: bool,
-) -> Result<SmallVec<[SmolCowStr<'de>; 2]>, Error>
+) -> Result<SmallVec<[SmolCowStr<'de>; DST_INLINE]>, Error>
 where
     R: ColumnRead<'de>,
 {
-    let mut dst: SmallVec<[_; 2]> = SmallVec::new();
+    let mut dst: SmallVec<[_; DST_INLINE]> = SmallVec::new();
     while let Some(b) = read.read_col()? {
         dst.push(
             b.try_map(str::from_utf8)
@@ -80,7 +80,7 @@ fn parse_names<'de, R>(
     read: &mut ColumnReader<R>,
     src_field: &str,
     escaped_names: bool, // defaults to false
-) -> Result<(SmolCowStr<'de>, SmallVec<[SmolCowStr<'de>; 2]>), Error>
+) -> Result<(SmolCowStr<'de>, SmallVec<[SmolCowStr<'de>; DST_INLINE]>), Error>
 where
     R: ColumnRead<'de>,
 {
@@ -235,7 +235,7 @@ where
     Ok(true)
 }
 
-fn try_borrow_many<'de>(many: &[SmolCowStr<'de>]) -> Option<SmallVec<[&'de str; 2]>> {
+fn try_borrow_many<'de>(many: &[SmolCowStr<'de>]) -> Option<SmallVec<[&'de str; DST_INLINE]>> {
     many.iter().map(SmolCowStr::as_borrowed).try_fold(
         SmallVec::with_capacity(many.len()),
         |mut sv, s| {
@@ -247,7 +247,7 @@ fn try_borrow_many<'de>(many: &[SmolCowStr<'de>]) -> Option<SmallVec<[&'de str; 
 
 struct LocalCx<'a, R> {
     src: &'a str,
-    dst: &'a SmallVec<[SmolStr; 2]>,
+    dst: &'a SmallVec<[SmolStr; DST_INLINE]>,
     escaped_names: bool,
     // missing_lvt_indices: bool,
     read: &'a mut ColumnReader<R>,
@@ -427,7 +427,7 @@ where
 
     struct Class<'env, 'd, R> {
         src: &'env str,
-        dst: SmallVec<[&'env str; 2]>,
+        dst: SmallVec<[&'env str; DST_INLINE]>,
         deser: ContentDeserializer<'d, R, ClassSpec>,
     }
 
@@ -510,7 +510,7 @@ where
     struct Field<'env, 'd, R> {
         desc: &'env str,
         src: &'env str,
-        dst: SmallVec<[&'env str; 2]>,
+        dst: SmallVec<[&'env str; DST_INLINE]>,
         deser: ContentDeserializer<'d, R, FieldSpec>,
     }
 
@@ -630,7 +630,7 @@ where
     struct Method<'env, 'd, R> {
         desc: &'env str,
         src: &'env str,
-        dst: SmallVec<[&'env str; 2]>,
+        dst: SmallVec<[&'env str; DST_INLINE]>,
         deser: ContentDeserializer<'d, R, MethodSpec>,
     }
 
@@ -713,7 +713,7 @@ where
                 .and_then(|b| make_smol_cow_str(b, cx.escaped_names))
         })
         .transpose()?;
-    let dst: Option<SmallVec<[_; 2]>> = if src.is_some() {
+    let dst: Option<SmallVec<[_; DST_INLINE]>> = if src.is_some() {
         Some(parse_dst(&mut *cx.read, cx.escaped_names)?)
     } else {
         None
@@ -724,7 +724,7 @@ where
     struct MethodParam<'env, 'd, R> {
         lv_index: usize,
         src: Option<&'env str>,
-        dst: Option<SmallVec<[&'env str; 2]>>,
+        dst: Option<SmallVec<[&'env str; DST_INLINE]>>,
         deser: ContentDeserializer<'d, R, MethodParamSpec>,
     }
 
@@ -822,7 +822,7 @@ where
                 .and_then(|b| make_smol_cow_str(b, cx.escaped_names))
         })
         .transpose()?;
-    let dst: Option<SmallVec<[_; 2]>> = if src.is_some() {
+    let dst: Option<SmallVec<[_; DST_INLINE]>> = if src.is_some() {
         Some(parse_dst(&mut *cx.read, cx.escaped_names)?)
     } else {
         None
@@ -835,7 +835,7 @@ where
         lv_start_offset: usize,
         lvt_index: Option<usize>,
         src: Option<&'env str>,
-        dst: Option<SmallVec<[&'env str; 2]>>,
+        dst: Option<SmallVec<[&'env str; DST_INLINE]>>,
         deser: ContentDeserializer<'d, R, MethodVarSpec>,
     }
 

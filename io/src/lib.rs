@@ -18,7 +18,7 @@ mod smol_str;
 pub use smol_str::SmolCowStr;
 
 /// Reference that could have two variants of lifetime.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum MaybeBorrowed<'s, 'de: 's, T: ?Sized> {
     /// Semantically temporary reference.
     Short(&'s T),
@@ -59,6 +59,15 @@ impl<'s, 'de: 's, T: ?Sized> MaybeBorrowed<'s, 'de, T> {
     #[inline]
     pub const fn is_borrowed(&self) -> bool {
         matches!(self, Self::Borrowed(_))
+    }
+
+    /// Returns the borrowed variant if valid.
+    #[inline]
+    pub const fn as_borrowed(&self) -> Option<&'de T> {
+        match self {
+            MaybeBorrowed::Short(_) => None,
+            MaybeBorrowed::Borrowed(b) => Some(b),
+        }
     }
 
     /// Assembles a reference from raw parts - whether it is borrowed and the raw pointer.
@@ -109,6 +118,22 @@ impl<T: ?Sized + PartialEq> PartialEq<T> for MaybeBorrowed<'_, '_, T> {
     #[inline]
     fn eq(&self, other: &T) -> bool {
         (**self) == *other
+    }
+}
+
+impl<T: ?Sized> Clone for MaybeBorrowed<'_, '_, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T: ?Sized> Copy for MaybeBorrowed<'_, '_, T> {}
+
+impl Default for MaybeBorrowed<'_, '_, str> {
+    #[inline]
+    fn default() -> Self {
+        Self::Borrowed("")
     }
 }
 

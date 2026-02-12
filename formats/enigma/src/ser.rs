@@ -79,9 +79,11 @@ where
         Self: 'a;
 
     fn serialize_comment(&mut self, value: &str) -> Result<(), Self::Error> {
-        self.writer
-            .write_fmt(format_args!("{}COMMENT {value}\n", Indent(self.indent)))
-            .map_err(Into::into)
+        for line in value.lines() {
+            self.writer
+                .write_fmt(format_args!("{}COMMENT {line}\n", Indent(self.indent)))?
+        }
+        Ok(())
     }
 
     fn serialize_class<Dst>(
@@ -92,15 +94,12 @@ where
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
-        let dst = dst
-            .into_iter()
-            .next()
-            .ok_or_else(|| Error::missing_field("dst"))?;
+        let dst = dst.into_iter().next();
         self.writer.write_fmt(format_args!(
             "{}CLASS {} {}\n",
             Indent(self.indent),
             src,
-            dst.as_ref(),
+            dst.as_ref().map_or("-", AsRef::as_ref),
         ))?;
         Ok(self.fork())
     }
@@ -110,24 +109,19 @@ where
         src: &str,
         desc: Option<&str>,
         dst: Dst,
-        dst_desc: Option<DstDesc>,
+        _dst_desc: Option<DstDesc>,
     ) -> Result<Self::SerializeField<'_>, Self::Error>
     where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>,
     {
-        drop(dst_desc);
-
-        let dst = dst
-            .into_iter()
-            .next()
-            .ok_or_else(|| Error::missing_field("dst"))?;
+        let dst = dst.into_iter().next();
         let desc = desc.ok_or_else(|| Error::missing_field("desc"))?;
         self.writer.write_fmt(format_args!(
             "{}FIELD {} {} {}\n",
             Indent(self.indent),
             src,
-            dst.as_ref(),
+            dst.as_ref().map_or("-", AsRef::as_ref),
             desc
         ))?;
         Ok(self.fork())
@@ -144,16 +138,13 @@ where
         Dst: IntoIterator<Item: AsRef<str>>,
         DstDesc: IntoIterator<Item: AsRef<str>>,
     {
-        let dst = dst
-            .into_iter()
-            .next()
-            .ok_or_else(|| Error::missing_field("dst"))?;
+        let dst = dst.into_iter().next();
         let desc = desc.ok_or_else(|| Error::missing_field("desc"))?;
         self.writer.write_fmt(format_args!(
             "{}METHOD {} {} {}\n",
             Indent(self.indent),
             src,
-            dst.as_ref(),
+            dst.as_ref().map_or("-", AsRef::as_ref),
             desc
         ))?;
         Ok(self.fork())
@@ -169,15 +160,13 @@ where
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
-        let dst = dst
-            .and_then(|it| it.into_iter().next())
-            .ok_or_else(|| Error::missing_field("dst"))?;
+        let dst = dst.and_then(|it| it.into_iter().next());
         let lv_index = lv_index.map(|i| i as i32).unwrap_or(-1);
         self.writer.write_fmt(format_args!(
             "{}ARG {} {}\n",
             Indent(self.indent),
             lv_index,
-            dst.as_ref(),
+            dst.as_ref().map_or("-", AsRef::as_ref),
         ))?;
         Ok(self.fork())
     }

@@ -10,6 +10,8 @@ use smol_str::ToSmolStr as _;
 use crate::{Error, INDENT, SEPARATOR};
 
 /// Enigma mapping file deserializer.
+///
+/// Access Modifiers are not supported.
 #[derive(Debug)]
 pub struct Deserializer<'a, R> {
     src: &'a str,
@@ -79,6 +81,19 @@ fn parse_bytes<'a, 'b>(
         .and_then(|mb| mb.try_map(str::from_utf8).map_err(Into::into))
 }
 
+#[inline]
+fn parse_bytes_optional<'a, 'b>(
+    b: Option<MaybeBorrowed<'a, 'b, [u8]>>,
+    section: &str,
+) -> Result<Option<MaybeBorrowed<'a, 'b, str>>, Error> {
+    b.ok_or_else(|| Error::missing_field(section))
+        .map(|b| (&*b != b"-").then_some(b))
+        .and_then(|b| {
+            b.map(|b| b.try_map(str::from_utf8).map_err(Into::into))
+                .transpose()
+        })
+}
+
 impl<'de, R> Deserializer<'_, R>
 where
     R: ColumnRead<'de>,
@@ -141,10 +156,10 @@ where
             .filter(|&i| i > -1)
             .ok_or_else(|| Error::custom(format_args!("invalid parameter lv-index")))?;
         let lv_index = (lv_index >= 0).then_some(lv_index as usize);
-        let dst = parse_bytes(dst, "name-b")?;
+        let dst = parse_bytes_optional(dst, "name-b")?;
 
         struct Arg<'env, 'd, R> {
-            dst: &'env str,
+            dst: Option<&'env str>,
             lv_index: Option<usize>,
             deser: Deserializer<'d, R>,
         }
@@ -162,7 +177,7 @@ where
             }
             #[inline]
             fn dst(&self) -> Option<impl Iterator<Item = &'env str>> {
-                Some(std::iter::once(self.dst))
+                self.dst.map(std::iter::once)
             }
             #[inline]
             fn pos(&self) -> Option<usize> {
@@ -179,10 +194,10 @@ where
         }
 
         match dst {
-            MaybeBorrowed::Short(dst) => {
+            Some(MaybeBorrowed::Short(dst)) => {
                 let dst = dst.to_smolstr();
                 visitor.visit_method_arg(Arg {
-                    dst: &dst,
+                    dst: Some(&dst),
                     lv_index,
                     deser: Deserializer {
                         src: self.src,
@@ -193,17 +208,19 @@ where
                     },
                 })
             }
-            MaybeBorrowed::Borrowed(dst) => visitor.visit_method_arg_borrowed(Arg {
-                dst,
-                lv_index,
-                deser: Deserializer {
-                    src: self.src,
-                    dst: self.dst,
-                    indent: self.indent + 1,
-                    aborted: false,
-                    read: self.read.reclaim(),
-                },
-            }),
+            dst @ (None | Some(MaybeBorrowed::Borrowed(_))) => {
+                visitor.visit_method_arg_borrowed(Arg {
+                    dst: dst.map(|b| b.as_borrowed().unwrap()),
+                    lv_index,
+                    deser: Deserializer {
+                        src: self.src,
+                        dst: self.dst,
+                        indent: self.indent + 1,
+                        aborted: false,
+                        read: self.read.reclaim(),
+                    },
+                })
+            }
         }
     }
 
@@ -232,12 +249,12 @@ where
     {
         let [src, dst, desc] = self.read.read_cols()?;
         let src = parse_bytes(src, "name-a")?;
-        let dst = parse_bytes(dst, "name-b")?;
+        let dst = parse_bytes_optional(dst, "name-b")?;
         let desc = parse_bytes(desc, "desc-a")?;
 
         struct Described<'env, 'd, R> {
             src: &'env str,
-            dst: &'env str,
+            dst: Option<&'env str>,
             desc: &'env str,
             deser: Deserializer<'d, R>,
         }
@@ -255,7 +272,7 @@ where
             }
             #[inline]
             fn dst(&self) -> impl Iterator<Item = &'env str> {
-                std::iter::once(self.dst)
+                self.dst.into_iter()
             }
             #[inline]
             fn desc(&self) -> Option<&'env str> {
@@ -284,7 +301,7 @@ where
             }
             #[inline]
             fn dst(&self) -> impl Iterator<Item = &'env str> {
-                std::iter::once(self.dst)
+                self.dst.into_iter()
             }
             #[inline]
             fn desc(&self) -> Option<&'env str> {
@@ -300,15 +317,15 @@ where
             }
         }
 
-        match (&src, &dst, &desc) {
+        match (&src, dst, &desc) {
             (
                 MaybeBorrowed::Borrowed(src),
-                MaybeBorrowed::Borrowed(dst),
+                dst @ (Some(MaybeBorrowed::Borrowed(_)) | None),
                 MaybeBorrowed::Borrowed(desc),
             ) => {
                 let described = Described {
                     src,
-                    dst,
+                    dst: dst.map(|b| b.as_borrowed().unwrap()),
                     desc,
                     deser: Deserializer {
                         src: self.src,
@@ -326,12 +343,12 @@ where
             _ => {
                 let (src, dst, desc) = (
                     SmolCowStr::from(src),
-                    SmolCowStr::from(dst),
+                    dst.map(SmolCowStr::from),
                     SmolCowStr::from(desc),
                 );
                 let described = Described {
                     src: &src,
-                    dst: &dst,
+                    dst: dst.as_deref(),
                     desc: &desc,
                     deser: Deserializer {
                         src: self.src,
@@ -355,11 +372,11 @@ where
     {
         let [src, dst] = self.read.read_cols()?;
         let src = parse_bytes(src, "class-name-a")?;
-        let dst = parse_bytes(dst, "class-name-b")?;
+        let dst = parse_bytes_optional(dst, "class-name-b")?;
 
         struct Class<'env, 'd, R> {
             src: &'env str,
-            dst: &'env str,
+            dst: Option<&'env str>,
             deser: Deserializer<'d, R>,
         }
 
@@ -376,7 +393,7 @@ where
             }
             #[inline]
             fn dst(&self) -> impl Iterator<Item = &'env str> {
-                std::iter::once(self.dst)
+                self.dst.into_iter()
             }
             #[inline]
             fn content(self) -> Self::ContentDeserializer {
@@ -384,11 +401,11 @@ where
             }
         }
 
-        match (&src, &dst) {
-            (MaybeBorrowed::Borrowed(src), MaybeBorrowed::Borrowed(dst)) => visitor
-                .visit_class_borrowed(Class {
+        match (src, dst) {
+            (MaybeBorrowed::Borrowed(src), dst @ (Some(MaybeBorrowed::Borrowed(_)) | None)) => {
+                visitor.visit_class_borrowed(Class {
                     src,
-                    dst,
+                    dst: dst.map(|b| b.as_borrowed().unwrap()),
                     deser: Deserializer {
                         src: self.src,
                         dst: self.dst,
@@ -396,12 +413,13 @@ where
                         aborted: false,
                         read: self.read.reclaim(),
                     },
-                }),
+                })
+            }
             _ => {
-                let (src, dst) = (SmolCowStr::from(src), SmolCowStr::from(dst));
+                let (src, dst) = (SmolCowStr::from(src), dst.map(SmolCowStr::from));
                 visitor.visit_class(Class {
                     src: &src,
-                    dst: &dst,
+                    dst: dst.as_deref(),
                     deser: Deserializer {
                         src: self.src,
                         dst: self.dst,

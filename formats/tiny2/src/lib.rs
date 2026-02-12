@@ -11,6 +11,9 @@ pub use ser::Serializer;
 const INDENT: u8 = b'\t';
 const SEPARATOR: u8 = b'\t';
 
+/// The property key for marking item names as 'escaped'.
+pub const PROPERTY_ESCAPED_NAMES: &str = "escaped-names";
+
 /// An error occurred in serialization or deserialization.
 #[derive(Debug)]
 pub struct Error {
@@ -123,7 +126,7 @@ impl mapping_serde::ser::Error for Error {
 
 #[cfg(test)]
 mod tests {
-    mod de;
+    mod serde;
 
     const TEST_MAPPING: &[u8] = include_bytes!("../testset/tinyV2.tiny");
 }

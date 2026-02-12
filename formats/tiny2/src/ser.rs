@@ -2,7 +2,7 @@ use std::{fmt::Display, io::Write, marker::PhantomData};
 
 use mapping_serde::ser::{self, Error as _, Impossible};
 
-use crate::{Error, INDENT};
+use crate::{Error, INDENT, PROPERTY_ESCAPED_NAMES};
 
 trait ContentSpec {
     const COMMENT: bool = false;
@@ -99,7 +99,7 @@ where
 
         let mut escaped_names = false;
         let props = props.into_iter().inspect(|(k, _)| {
-            if k.as_ref() == "escaped-names" {
+            if k.as_ref() == PROPERTY_ESCAPED_NAMES {
                 escaped_names = true
             }
         });
@@ -169,7 +169,7 @@ where
     {
         serialize_class_impl(src, dst, 0, &mut self.writer, self.escaped_names)?;
         Ok(ContentSerializer {
-            indent: 0,
+            indent: 1,
             writer: &mut self.writer,
             escaped_names: self.escaped_names,
             spec: PhantomData::<ClassSpec>,
@@ -392,7 +392,7 @@ where
             let desc = desc.ok_or_else(|| Error::missing_field("method-desc-a"))?;
             write!(
                 self.writer,
-                "{}f\t{}\t{}",
+                "{}m\t{}\t{}",
                 Indent(self.indent),
                 desc,
                 MaybeEscaped(src, self.escaped_names)
@@ -417,7 +417,7 @@ where
     {
         if S::METHOD_PARAM {
             let lv_index = lv_index.ok_or_else(|| Error::missing_field("lv-index"))?;
-            write!(self.writer, "{}f\t{}", Indent(self.indent), lv_index)?;
+            write!(self.writer, "{}p\t{}", Indent(self.indent), lv_index)?;
             if let Some(src) = src {
                 write!(self.writer, "\t{}", MaybeEscaped(src, self.escaped_names))?;
                 if let Some(dst) = dst {

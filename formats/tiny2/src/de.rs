@@ -1,14 +1,16 @@
-use std::{borrow::Cow, collections::HashMap, ops::Deref};
+use std::{borrow::Cow, collections::BTreeMap, io::BufRead, ops::Deref};
 
 use fast_unescape::try_unescape;
-use io_util::{ColumnRead, ColumnReader, MaybeBorrowed, SmolCowStr};
+use io_util::{
+    ColumnRead, ColumnReadAdapter, ColumnReader, IoReader, MaybeBorrowed, SliceReader, SmolCowStr,
+};
 use mapping_serde::de::{
     self, Error as _, FieldAccess, MethodAccess, MethodArgAccess, MethodVarAccess,
 };
 use smallvec::SmallVec;
 use smol_str::{SmolStr, ToSmolStr as _};
 
-use crate::{Error, INDENT, SEPARATOR};
+use crate::{Error, INDENT, PROPERTY_ESCAPED_NAMES, SEPARATOR};
 
 fn parse_version<'de, R>(reader: &mut ColumnReader<R>) -> Result<(u16, u16), Error>
 where
@@ -42,7 +44,7 @@ pub struct Deserializer<R> {
     aborted: bool,
     read: ColumnReader<R>,
 
-    props: HashMap<SmolStr, Option<SmolStr>>,
+    props: BTreeMap<SmolStr, Option<SmolStr>>,
     escaped_names: bool,
     // missing_lvt_indices: bool,
 }
@@ -113,7 +115,7 @@ where
             return Err(Error::missing_field("namespace-b"));
         }
 
-        let mut props = HashMap::new();
+        let mut props = BTreeMap::new();
         while let Some(1) = reader.next_line()? {
             let key = reader
                 .read_col()
@@ -143,10 +145,42 @@ where
             aborted: false,
             read: reader,
 
-            escaped_names: props.contains_key("escaped-names"),
+            escaped_names: props.contains_key(PROPERTY_ESCAPED_NAMES),
             // missing_lvt_indices: props.contains_key("missing-lvt-indices"),
             props,
         })
+    }
+}
+
+impl<'slice> Deserializer<ColumnReadAdapter<Box<SliceReader<'slice>>>> {
+    /// Creates a new deserializer from the given slice.
+    ///
+    /// Note that this involves heap allocation. To avoid it, pin a reader in the stack and
+    /// create a deserializer with [`Self::new`].
+    ///
+    /// # Errors
+    ///
+    /// See [`Self::new`].
+    pub fn from_slice(slice: &'slice [u8]) -> Result<Self, Error> {
+        Self::new(ColumnReadAdapter::new(Box::new(SliceReader::new(slice))))
+    }
+}
+
+impl<R> Deserializer<ColumnReadAdapter<Box<IoReader<R>>>>
+where
+    R: Unpin + BufRead,
+{
+    /// Creates a new deserializer from the given I/O reader.
+    /// The reader should implement [`std::io::BufRead`].
+    ///
+    /// Note that this involves heap allocation. To avoid it, pin a reader in the stack and
+    /// create a deserializer with [`Self::new`].
+    ///
+    /// # Errors
+    ///
+    /// See [`Self::new`].
+    pub fn from_reader(reader: R) -> Result<Self, Error> {
+        Self::new(ColumnReadAdapter::new(Box::new(IoReader::new(reader))))
     }
 }
 

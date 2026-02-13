@@ -52,6 +52,9 @@ pub trait Serializer {
     /// The error type.
     type Error: Error;
 
+    /// Whether inner classes should be flattened.
+    const FLAT_CLASSES: bool;
+
     /// Type returned from [`Serializer::serialize_class`] for class content serialization.
     type SerializeClass<'a>: Serializer<Error = Self::Error>
     where
@@ -142,6 +145,8 @@ where
     T: Serializer,
 {
     type Error = T::Error;
+
+    const FLAT_CLASSES: bool = T::FLAT_CLASSES;
 
     type SerializeClass<'a>
         = T::SerializeClass<'a>
@@ -254,6 +259,8 @@ where
     Err: Error,
 {
     type Error = Err;
+
+    const FLAT_CLASSES: bool = false;
 
     type SerializeClass<'a>
         = Self
@@ -380,6 +387,8 @@ where
     Err: Error,
 {
     type Error = Err;
+
+    const FLAT_CLASSES: bool = false;
 
     type SerializeClass<'a>
         = Self

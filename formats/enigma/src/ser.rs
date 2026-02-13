@@ -53,6 +53,8 @@ where
 {
     type Error = Error;
 
+    const FLAT_CLASSES: bool = false;
+
     type SerializeClass<'a>
         = Serializer<'a, W>
     where

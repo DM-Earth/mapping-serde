@@ -130,6 +130,8 @@ where
 {
     type Error = Error;
 
+    const FLAT_CLASSES: bool = true;
+
     type SerializeClass<'a>
         = ContentSerializer<'a, W, ClassSpec>
     where
@@ -293,6 +295,8 @@ where
     W: Write,
 {
     type Error = Error;
+
+    const FLAT_CLASSES: bool = true;
 
     type SerializeClass<'a>
         = ContentSerializer<'a, W, ClassSpec>

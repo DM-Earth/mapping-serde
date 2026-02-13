@@ -1,6 +1,7 @@
 //! Serialization.
 
 use core::{
+    convert::Infallible,
     fmt::{Debug, Display},
     marker::PhantomData,
 };
@@ -479,5 +480,14 @@ where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
         Ok(Self::new())
+    }
+}
+
+impl Error for Infallible {
+    fn custom<T>(_msg: T) -> Self
+    where
+        T: Display,
+    {
+        unreachable!()
     }
 }

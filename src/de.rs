@@ -1,6 +1,6 @@
 //! Deserialization based on visitors.
 
-use core::fmt::Display;
+use core::{convert::Infallible, fmt::Display};
 
 mod r#impl;
 mod visit;
@@ -173,5 +173,14 @@ where
     #[inline]
     fn dst_namespaces(&self) -> impl Iterator<Item = &str> {
         T::dst_namespaces(self)
+    }
+}
+
+impl Error for Infallible {
+    fn custom<T>(_msg: T) -> Self
+    where
+        T: Display,
+    {
+        unreachable!()
     }
 }

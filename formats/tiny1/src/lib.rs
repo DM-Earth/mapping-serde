@@ -2,7 +2,9 @@
 
 use std::fmt::Display;
 
-pub mod stream;
+mod de;
+
+pub use de::*;
 
 const DST_INLINE: usize = 2;
 
@@ -117,3 +119,6 @@ impl mapping_serde::ser::Error for Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

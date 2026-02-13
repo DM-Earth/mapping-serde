@@ -1,4 +1,4 @@
-//! Stream tiny1 file content.
+//! Stream Tiny1 file content.
 
 use std::{collections::BTreeMap, ops::Deref};
 
@@ -8,7 +8,7 @@ use smol_str::SmolStr;
 
 use crate::{Error, SEPARATOR};
 
-/// A low-level content visitor.
+/// A low-level content visitor for Tiny.
 pub trait Visitor {
     /// Output type of this visitor.
     type Value;
@@ -181,10 +181,9 @@ where
         if !self.read.is_fresh_line() {
             self.read.next_line()?;
         }
-        let ty = self
-            .read
-            .read_col()?
-            .ok_or_else(|| Error::missing_field("entry-type"))?;
+        let Some(ty) = self.read.read_col()? else {
+            return Ok(None);
+        };
 
         match &*ty {
             b"CLASS" => self.deserialize_class(visitor),
@@ -204,10 +203,7 @@ where
     where
         V: Visitor,
     {
-        self.deserialize_impl(visitor).map_err(|err| Error {
-            kind: err.kind,
-            line: self.read.line(),
-            col: self.read.col(),
-        })
+        self.deserialize_impl(visitor)
+            .map_err(|err| err.with_loc(self.read.line(), self.read.col()))
     }
 }

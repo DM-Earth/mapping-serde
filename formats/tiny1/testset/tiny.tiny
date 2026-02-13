@@ -1,4 +1,6 @@
 v1	source	target	target2
+# KEY VAL
+# KEY-only
 CLASS	class_1	class1Ns0Rename	class1Ns1Rename
 FIELD	class_1	I	field_1	field1Ns0Rename	field1Ns1Rename
 METHOD	class_1	()I	method_1	method1Ns0Rename	method1Ns1Rename

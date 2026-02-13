@@ -1,10 +1,29 @@
-//! mapping-serde support for Tiny V1 mapping format.
+//! mapping-serde support for Tiny v1 mapping format.
+//!
+//! > Tiny v1 consists of a list of flat (non-hierarchical) mapping entries.
+//! > Every line in the content section corresponds to a new entry.
+//! > Supported elements are classes, fields and methods.
+//!
+//! - from Fabric wiki [Tiny v1](https://wiki.fabricmc.net/documentation:tiny).
+//!
+//! # Deserialization
+//!
+//! Due to the flatten nature of Tiny1 format it's more difficult to deserialize it in a tree fashion, which is
+//! required by `mapping-serde`, and there are three ways to deserialize it in this crate:
+//!
+//! * Index the whole file with [`Index::from_stream`] then create a deserializer with [`Index::as_deserializer`].
+//!   This is the most conservative way to achieve it and is the slowest.
+//! * Treat the file as tree-style, like Tiny2 but not indented through [`PseudoTreeDeserializer`].
+//!   This is useful for generated mappings like `intermediary`.
+//! * Visits each entry directly with [`StreamDeserializer`], only if you need low-level access to the file.
 
 use std::fmt::Display;
 
 mod de;
+mod ser;
 
 pub use de::*;
+pub use ser::Serializer;
 
 const DST_INLINE: usize = 2;
 

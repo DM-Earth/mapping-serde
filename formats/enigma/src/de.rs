@@ -1,9 +1,6 @@
 //! Enigma mapping file deserialization.
 
-use io_util::{
-    ColumnRead, ColumnReadAdapter, ColumnReader, IoReader, MaybeBorrowed, MaybeMut, SliceReader,
-    SmolCowStr,
-};
+use io_util::{ColumnRead, ColumnReader, MaybeBorrowed, MaybeMut, SmolCowStr};
 use mapping_serde::de::{self, Error as _};
 use smol_str::ToSmolStr as _;
 
@@ -31,38 +28,6 @@ impl<'a, R> Deserializer<'a, R> {
             aborted: false,
             read: MaybeMut::Owned(ColumnReader::new(INDENT, SEPARATOR, read)),
         }
-    }
-}
-
-impl<'a, 'slice> Deserializer<'a, ColumnReadAdapter<Box<SliceReader<'slice>>>> {
-    /// Creates a new deserializer from the given slice.
-    ///
-    /// Note that this involves heap allocation. To avoid it, pin a reader in the stack and
-    /// create a deserializer with [`Self::new`].
-    pub fn from_slice(src: &'a str, dst: &'a str, slice: &'slice [u8]) -> Self {
-        Self::new(
-            src,
-            dst,
-            ColumnReadAdapter::new(Box::new(SliceReader::new(slice))),
-        )
-    }
-}
-
-impl<'a, R> Deserializer<'a, ColumnReadAdapter<Box<IoReader<R>>>>
-where
-    R: Unpin,
-{
-    /// Creates a new deserializer from the given I/O reader.
-    /// The reader should implement [`std::io::BufRead`].
-    ///
-    /// Note that this involves heap allocation. To avoid it, pin a reader in the stack and
-    /// create a deserializer with [`Self::new`].
-    pub fn from_reader(src: &'a str, dst: &'a str, reader: R) -> Self {
-        Self::new(
-            src,
-            dst,
-            ColumnReadAdapter::new(Box::new(IoReader::new(reader))),
-        )
     }
 }
 

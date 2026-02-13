@@ -70,6 +70,15 @@ impl<'s, 'de: 's, T: ?Sized> MaybeBorrowed<'s, 'de, T> {
         }
     }
 
+    /// Returns the short variant if valid.
+    #[inline]
+    pub const fn as_short(&self) -> &'s T {
+        match self {
+            MaybeBorrowed::Short(s) => s,
+            MaybeBorrowed::Borrowed(b) => b,
+        }
+    }
+
     /// Assembles a reference from raw parts - whether it is borrowed and the raw pointer.
     ///
     /// # Safety
@@ -95,15 +104,34 @@ impl<'de, T: ToOwned + ?Sized> From<MaybeBorrowed<'_, 'de, T>> for Cow<'de, T> {
     }
 }
 
+impl From<MaybeBorrowed<'_, '_, str>> for String {
+    #[inline]
+    fn from(value: MaybeBorrowed<'_, '_, str>) -> Self {
+        (*value).into()
+    }
+}
+
+impl From<MaybeBorrowed<'_, '_, str>> for Box<str> {
+    #[inline]
+    fn from(value: MaybeBorrowed<'_, '_, str>) -> Self {
+        (*value).into()
+    }
+}
+
+#[cfg(feature = "smol-str")]
+impl From<MaybeBorrowed<'_, '_, str>> for ::smol_str::SmolStr {
+    #[inline]
+    fn from(value: MaybeBorrowed<'_, '_, str>) -> Self {
+        (*value).into()
+    }
+}
+
 impl<T: ?Sized> Deref for MaybeBorrowed<'_, '_, T> {
     type Target = T;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        match self {
-            MaybeBorrowed::Short(v) => v,
-            MaybeBorrowed::Borrowed(v) => v,
-        }
+        self.as_short()
     }
 }
 

@@ -1,7 +1,7 @@
 use std::{fmt::Display, io::Write};
 
 use io_util::MaybeMut;
-use mapping_serde::ser::{self, Error as _};
+use mapping_serde::ser::{self, Error as _, Skip};
 
 use crate::{Error, INDENT};
 
@@ -74,7 +74,7 @@ where
         Self: 'a;
 
     type SerializeMethodVar<'a>
-        = Serializer<'a, W>
+        = Skip<Error>
     where
         Self: 'a;
 
@@ -171,6 +171,7 @@ where
         Ok(self.fork())
     }
 
+    #[inline]
     fn serialize_method_var<Dst>(
         &mut self,
         _src: Option<&str>,
@@ -182,10 +183,6 @@ where
     where
         Dst: IntoIterator<Item: AsRef<str>>,
     {
-        Err(Error {
-            kind: crate::ErrorKind::Unsupported("method variable"),
-            line: 0,
-            col: 0,
-        })
+        Ok(Skip::new())
     }
 }

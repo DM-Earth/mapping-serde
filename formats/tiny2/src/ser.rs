@@ -401,7 +401,7 @@ where
             writeln!(self.writer)?;
             Ok(self.fork())
         } else {
-            Err(Error::unsupported_type("field"))
+            Err(Error::unsupported_type("method"))
         }
     }
 

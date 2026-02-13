@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::Deref};
+use std::{borrow::Cow, hash::Hash, ops::Deref};
 
 use smol_str::{SmolStr, ToSmolStr as _};
 
@@ -60,5 +60,21 @@ impl<'de> From<Cow<'de, str>> for SmolCowStr<'de> {
             Cow::Borrowed(b) => SmolCowStr::Borrowed(b),
             Cow::Owned(o) => SmolCowStr::Owned(o.into()),
         }
+    }
+}
+
+impl PartialEq for SmolCowStr<'_> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl Eq for SmolCowStr<'_> {}
+
+impl Hash for SmolCowStr<'_> {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (**self).hash(state);
     }
 }

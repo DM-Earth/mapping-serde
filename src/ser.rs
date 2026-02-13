@@ -1,6 +1,9 @@
 //! Serialization.
 
-use core::{fmt::Display, marker::PhantomData};
+use core::{
+    fmt::{Debug, Display},
+    marker::PhantomData,
+};
 
 mod r#impl;
 
@@ -72,9 +75,6 @@ pub trait Serializer {
     type SerializeMethodVar<'a>: Serializer<Error = Self::Error>
     where
         Self: 'a;
-
-    #[doc(hidden)]
-    const __IS_IMPOSSIBLE: bool = false;
 
     /// Serializes a comment literal.
     fn serialize_comment(&mut self, value: &str) -> Result<(), Self::Error>;
@@ -166,8 +166,6 @@ where
         = T::SerializeMethodVar<'a>
     where
         Self: 'a;
-
-    const __IS_IMPOSSIBLE: bool = T::__IS_IMPOSSIBLE;
 
     #[inline]
     fn serialize_comment(&mut self, value: &str) -> Result<(), Self::Error> {
@@ -281,8 +279,6 @@ where
     where
         Self: 'a;
 
-    const __IS_IMPOSSIBLE: bool = true;
-
     fn serialize_comment(&mut self, _value: &str) -> Result<(), Self::Error> {
         Err(Err::unsupported_type("comment"))
     }
@@ -354,11 +350,134 @@ where
     }
 }
 
-/// Whether the serializer type is [`Impossible`] or its derivations.
-#[inline]
-pub const fn is_impossible<S>() -> bool
+/// Helper type for implementing a `Serializer` that skips serializing one of the element types.
+pub struct Skip<Err>(PhantomData<Err>);
+
+impl<Err> Skip<Err> {
+    /// Creates a new skip helper.
+    #[inline]
+    pub const fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<Err> Default for Skip<Err> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<Err> Debug for Skip<Err> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("Skip").finish()
+    }
+}
+
+impl<Err> Serializer for Skip<Err>
 where
-    S: Serializer,
+    Err: Error,
 {
-    S::__IS_IMPOSSIBLE
+    type Error = Err;
+
+    type SerializeClass<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeField<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeMethod<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeMethodArg<'a>
+        = Self
+    where
+        Self: 'a;
+
+    type SerializeMethodVar<'a>
+        = Self
+    where
+        Self: 'a;
+
+    #[inline]
+    fn serialize_comment(&mut self, _value: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline]
+    fn serialize_class<Dst>(
+        &mut self,
+        _src: &str,
+        _dst: Dst,
+    ) -> Result<Self::SerializeClass<'_>, Self::Error>
+    where
+        Dst: IntoIterator<Item: AsRef<str>>,
+    {
+        Ok(Self::new())
+    }
+
+    #[inline]
+    fn serialize_field<Dst, DstDesc>(
+        &mut self,
+        _src: &str,
+        _desc: Option<&str>,
+        _dst: Dst,
+        _dst_desc: Option<DstDesc>,
+    ) -> Result<Self::SerializeField<'_>, Self::Error>
+    where
+        Dst: IntoIterator<Item: AsRef<str>>,
+        DstDesc: IntoIterator<Item: AsRef<str>>,
+    {
+        Ok(Self::new())
+    }
+
+    #[inline]
+    fn serialize_method<Dst, DstDesc>(
+        &mut self,
+        _src: &str,
+        _desc: Option<&str>,
+        _dst: Dst,
+        _dst_desc: Option<DstDesc>,
+    ) -> Result<Self::SerializeMethod<'_>, Self::Error>
+    where
+        Dst: IntoIterator<Item: AsRef<str>>,
+        DstDesc: IntoIterator<Item: AsRef<str>>,
+    {
+        Ok(Self::new())
+    }
+
+    #[inline]
+    fn serialize_method_arg<Dst>(
+        &mut self,
+        _src: Option<&str>,
+        _dst: Option<Dst>,
+        _pos: Option<usize>,
+        _lv_index: Option<usize>,
+    ) -> Result<Self::SerializeMethodArg<'_>, Self::Error>
+    where
+        Dst: IntoIterator<Item: AsRef<str>>,
+    {
+        Ok(Self::new())
+    }
+
+    #[inline]
+    fn serialize_method_var<Dst>(
+        &mut self,
+        _src: Option<&str>,
+        _dst: Option<Dst>,
+        _lv_index: Option<usize>,
+        _lvt_row_index: Option<usize>,
+        _op_idx: Option<(usize, Option<usize>)>,
+    ) -> Result<Self::SerializeMethodVar<'_>, Self::Error>
+    where
+        Dst: IntoIterator<Item: AsRef<str>>,
+    {
+        Ok(Self::new())
+    }
 }

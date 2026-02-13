@@ -81,7 +81,6 @@ fn parse_bytes<'a, 'b>(
         .and_then(|mb| mb.try_map(str::from_utf8).map_err(Into::into))
 }
 
-#[inline]
 fn parse_bytes_optional<'a, 'b>(
     b: Option<MaybeBorrowed<'a, 'b, [u8]>>,
     section: &str,

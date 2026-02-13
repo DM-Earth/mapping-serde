@@ -64,6 +64,8 @@ where
 {
     type Error = Error;
 
+    const FLAT_CLASSES: bool = true;
+
     #[inline]
     fn src_namespace(&self) -> &str {
         self.stream.src()
@@ -226,6 +228,8 @@ struct EmptyDeserializer<'a> {
 impl<'de> Deserializer<'de> for EmptyDeserializer<'_> {
     type Error = Error;
 
+    const FLAT_CLASSES: bool = true;
+
     #[inline]
     fn src_namespace(&self) -> &str {
         self.ns_src
@@ -338,6 +342,8 @@ where
     R: ColumnRead<'de>,
 {
     type Error = Error;
+
+    const FLAT_CLASSES: bool = true;
 
     #[inline]
     fn src_namespace(&self) -> &str {

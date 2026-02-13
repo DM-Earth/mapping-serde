@@ -49,7 +49,6 @@ enum ErrorKind {
     Msg(Box<str>),
     Io(std::io::Error),
     Utf8(std::str::Utf8Error),
-    Unescape(fast_unescape::Error),
 }
 
 impl Display for ErrorKind {
@@ -58,7 +57,6 @@ impl Display for ErrorKind {
             Self::Msg(msg) => write!(f, "{msg}"),
             Self::Io(error) => write!(f, "I/O error: {error}"),
             Self::Utf8(utf8_error) => write!(f, "utf8 conversion error: {utf8_error}"),
-            Self::Unescape(error) => write!(f, "string unescape error: {error}"),
         }
     }
 }
@@ -97,16 +95,6 @@ impl From<std::str::Utf8Error> for Error {
     fn from(value: std::str::Utf8Error) -> Self {
         Self {
             kind: ErrorKind::Utf8(value),
-            line: 0,
-            col: 0,
-        }
-    }
-}
-
-impl From<fast_unescape::Error> for Error {
-    fn from(value: fast_unescape::Error) -> Self {
-        Self {
-            kind: ErrorKind::Unescape(value),
             line: 0,
             col: 0,
         }

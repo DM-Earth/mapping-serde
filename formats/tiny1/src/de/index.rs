@@ -238,6 +238,8 @@ pub struct IndexDeserializer<'a> {
 impl<'a> Deserializer<'a> for IndexDeserializer<'a> {
     type Error = Error;
 
+    const FLAT_CLASSES: bool = true;
+
     #[inline]
     fn src_namespace(&self) -> &str {
         self.namespace_a
@@ -313,6 +315,8 @@ struct ContentDeserializer<'a> {
 
 impl<'a> Deserializer<'a> for ContentDeserializer<'a> {
     type Error = Error;
+
+    const FLAT_CLASSES: bool = true;
 
     #[inline]
     fn src_namespace(&self) -> &str {
@@ -427,6 +431,8 @@ struct EmptyDeserializer<'a> {
 
 impl<'a> Deserializer<'a> for EmptyDeserializer<'a> {
     type Error = Error;
+
+    const FLAT_CLASSES: bool = true;
 
     #[inline]
     fn src_namespace(&self) -> &str {

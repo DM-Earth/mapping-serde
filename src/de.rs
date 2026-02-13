@@ -41,6 +41,9 @@ pub trait Deserializer<'de> {
     /// The error type.
     type Error: Error;
 
+    /// Whether inner classes should be flattened.
+    const FLAT_CLASSES: bool;
+
     /// Returns the source namespace of this mapping.
     fn src_namespace(&self) -> &str;
 
@@ -111,6 +114,8 @@ where
     T: Deserializer<'de>,
 {
     type Error = T::Error;
+
+    const FLAT_CLASSES: bool = T::FLAT_CLASSES;
 
     #[inline]
     fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>

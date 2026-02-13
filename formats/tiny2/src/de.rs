@@ -317,6 +317,8 @@ where
 {
     type Error = Error;
 
+    const FLAT_CLASSES: bool = true;
+
     #[inline]
     fn src_namespace(&self) -> &str {
         self.cx.src
@@ -897,6 +899,8 @@ where
     R: ColumnRead<'de>,
 {
     type Error = Error;
+
+    const FLAT_CLASSES: bool = true;
 
     #[inline]
     fn src_namespace(&self) -> &str {

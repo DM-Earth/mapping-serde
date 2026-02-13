@@ -403,6 +403,8 @@ where
 {
     type Error = Error;
 
+    const FLAT_CLASSES: bool = false;
+
     fn deserialize_any<V>(&mut self, visitor: V) -> Result<Option<V::Value>, Self::Error>
     where
         V: de::Visitor<'de>,

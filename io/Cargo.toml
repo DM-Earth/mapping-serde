@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-memchr = "2.7"
+memchr = "2.8"
 smol_str = { version = "0.3", optional = true }
 
 [features]

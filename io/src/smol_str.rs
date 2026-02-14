@@ -1,4 +1,4 @@
-use std::{borrow::Cow, hash::Hash, ops::Deref};
+use std::{borrow::Cow, fmt::Display, hash::Hash, ops::Deref};
 
 use smol_str::{SmolStr, ToSmolStr as _};
 
@@ -40,6 +40,13 @@ impl AsRef<str> for SmolCowStr<'_> {
     #[inline]
     fn as_ref(&self) -> &str {
         self
+    }
+}
+
+impl Display for SmolCowStr<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        (**self).fmt(f)
     }
 }
 

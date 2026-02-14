@@ -34,7 +34,9 @@ fn serialize() {
     let mut class2 = class1
         .serialize_class("class_2", ["class2Ns0Rename"])
         .unwrap();
-    class2.serialize_comment("This is a comment").unwrap();
+    class2
+        .serialize_comment("This is a comment\nAnother line")
+        .unwrap();
     class2
         .serialize_field(
             "field_2",

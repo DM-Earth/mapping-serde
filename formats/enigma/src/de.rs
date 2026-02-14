@@ -192,15 +192,24 @@ where
     where
         V: de::Visitor<'de>,
     {
+        let mut merged = String::new();
         if let Some(comment) = self.read.this_line() {
-            let comment = comment.try_map(str::from_utf8)?;
-            match comment {
-                MaybeBorrowed::Short(v) => visitor.visit_comment(v),
-                MaybeBorrowed::Borrowed(v) => visitor.visit_comment_borrowed(v),
-            }
-        } else {
-            visitor.visit_comment_borrowed("")
+            merged.push_str(str::from_utf8(&comment)?);
         }
+        loop {
+            if let Some(indent) = self.read.next_line()?
+                && self.indent == indent
+                && let Some(line) = self.read.this_line()
+                && let Some(comment) = line.strip_prefix(b"COMMENT ")
+            {
+                merged.push('\n');
+                merged.push_str(str::from_utf8(comment)?);
+                self.read.mark_dirty();
+            } else {
+                break;
+            }
+        }
+        visitor.visit_comment(&merged)
     }
 
     fn deserialize_described_impl<V>(

@@ -182,6 +182,7 @@ fn parse_type(ty: &str) -> SmolCowStr<'_> {
             "long" => SmolCowStr::Borrowed("J"),
             "short" => SmolCowStr::Borrowed("S"),
             "boolean" => SmolCowStr::Borrowed("Z"),
+            "void" => SmolCowStr::Borrowed("V"),
             class => SmolCowStr::Owned(format_smolstr!("L{class};")),
         }
     }

@@ -6,6 +6,8 @@ use core::{
     marker::PhantomData,
 };
 
+use crate::Deserializer;
+
 mod r#impl;
 
 /// Error type used by a serializer.
@@ -54,6 +56,17 @@ pub trait Serializer {
 
     /// Whether inner classes should be flattened.
     const FLAT_CLASSES: bool;
+
+    /// Whether the deserializer's class layout matches this serializer's class layout.
+    ///
+    /// By default this compares [`Self::FLAT_CLASSES`] of the two.
+    #[inline]
+    fn layout_matches<'de, D>() -> bool
+    where
+        D: Deserializer<'de> + ?Sized,
+    {
+        D::FLAT_CLASSES == Self::FLAT_CLASSES
+    }
 
     /// Type returned from [`Serializer::serialize_class`] for class content serialization.
     type SerializeClass<'a>: Serializer<Error = Self::Error>
@@ -147,6 +160,14 @@ where
     type Error = T::Error;
 
     const FLAT_CLASSES: bool = T::FLAT_CLASSES;
+
+    #[inline]
+    fn layout_matches<'de, D>() -> bool
+    where
+        D: Deserializer<'de> + ?Sized,
+    {
+        T::layout_matches::<'de, D>()
+    }
 
     type SerializeClass<'a>
         = T::SerializeClass<'a>
@@ -261,6 +282,14 @@ where
     type Error = Err;
 
     const FLAT_CLASSES: bool = false;
+
+    #[inline]
+    fn layout_matches<'de, D>() -> bool
+    where
+        D: Deserializer<'de> + ?Sized,
+    {
+        true
+    }
 
     type SerializeClass<'a>
         = Self
@@ -389,6 +418,14 @@ where
     type Error = Err;
 
     const FLAT_CLASSES: bool = false;
+
+    #[inline]
+    fn layout_matches<'de, D>() -> bool
+    where
+        D: Deserializer<'de> + ?Sized,
+    {
+        true
+    }
 
     type SerializeClass<'a>
         = Self

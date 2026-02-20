@@ -247,6 +247,11 @@ impl<'de> Deserializer<'de> for EmptyDeserializer<'_> {
     {
         Ok(None)
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(0))
+    }
 }
 
 struct Described<'a, 's> {
@@ -449,20 +454,20 @@ where
             return Ok(None);
         }
 
-        let mut visitor = Some(visitor);
+        let mut visitor = visitor;
         loop {
             let wrapper = Wrapper {
                 class_buf: &mut self.d.class_buf,
                 parent: self.parent,
                 ns_src: &self.d.ns_src,
                 ns_dst: &self.d.ns_dst,
-                visitor: visitor.take().unwrap(),
+                visitor,
                 _ghost: PhantomData,
             };
             let ctl = self.d.stream.deserialize_next(wrapper)?;
             match ctl {
                 Some(ControlFlow::Yield(val)) => return val.map(Some),
-                Some(ControlFlow::Continue(v)) => visitor = Some(v),
+                Some(ControlFlow::Continue(v)) => visitor = v,
                 Some(ControlFlow::Break) | None => {
                     self.aborted = true;
                     return Ok(None);

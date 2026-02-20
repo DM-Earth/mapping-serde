@@ -305,6 +305,11 @@ impl<'a> Deserializer<'a> for IndexDeserializer<'a> {
             })
             .map(Some)
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter_classes.size_hint()
+    }
 }
 
 struct ContentDeserializer<'a> {
@@ -422,6 +427,11 @@ impl<'a> Deserializer<'a> for ContentDeserializer<'a> {
         }
         .map(Some)
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter_contents.size_hint()
+    }
 }
 
 struct EmptyDeserializer<'a> {
@@ -450,6 +460,11 @@ impl<'a> Deserializer<'a> for EmptyDeserializer<'a> {
         V: mapping_serde::de::Visitor<'a>,
     {
         Ok(None)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(0))
     }
 }
 

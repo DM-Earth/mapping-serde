@@ -377,4 +377,9 @@ impl<'de> de::Deserializer<'de> for EmptyDeserializer<'_> {
     {
         Ok(None)
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(0))
+    }
 }

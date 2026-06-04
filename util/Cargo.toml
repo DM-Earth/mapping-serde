@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-mapping-serde = { path = "../", package = "java-mapping-serde" }
+mapping-serde = { path = "../", package = "java-mapping-serde", default-features = false }
 smol_str = { version = "0.3", optional = true }
 io-util = { path = "../io", package = "java-mapping-serde-io-util", optional = true }
 smallvec = { version = "1.15", optional = true }
 
 [features]
 default = ["std"]
-std = []
+std = ["mapping-serde/std"]
 translate = ["dep:smol_str", "dep:io-util", "dep:smallvec", "std"]
 
 [lints]

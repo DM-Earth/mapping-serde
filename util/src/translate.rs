@@ -4,7 +4,113 @@ use io_util::SmolCowStr;
 use mapping_serde::de::{ClassAccess, FieldAccess, MethodAccess, MethodArgAccess, MethodVarAccess};
 use smallvec::SmallVec;
 
+macro_rules! push_contents {
+    ($v:ident,$f:expr$(,)?) => {
+        fn visit_comment<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: mapping_serde::de::Error,
+        {
+            self.$v
+                .push(Content::Comment(SmolCowStr::Owned(value.into())));
+            Ok(())
+        }
+
+        fn visit_comment_borrowed<E>(self, value: &'de str) -> Result<Self::Value, E>
+        where
+            E: mapping_serde::de::Error,
+        {
+            self.$v.push(Content::Comment(SmolCowStr::Borrowed(value)));
+            Ok(())
+        }
+
+        fn visit_field<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::FieldAccess<'de, 'b>,
+        {
+            self.$v
+                .push(Content::Described(Described::from_field_access(
+                    access, $f,
+                )?));
+            Ok(())
+        }
+
+        fn visit_field_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::FieldAccess<'de, 'de>,
+        {
+            self.$v
+                .push(Content::Described(Described::from_field_access_borrowed(
+                    access, $f,
+                )?));
+            Ok(())
+        }
+
+        fn visit_method<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::MethodAccess<'de, 'b>,
+        {
+            self.$v
+                .push(Content::Described(Described::from_method_access(
+                    access, $f,
+                )?));
+            Ok(())
+        }
+
+        fn visit_method_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::MethodAccess<'de, 'de>,
+        {
+            self.$v
+                .push(Content::Described(Described::from_method_access_borrowed(
+                    access, $f,
+                )?));
+            Ok(())
+        }
+
+        fn visit_method_arg<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::MethodArgAccess<'de, 'b>,
+        {
+            self.$v
+                .push(Content::MethodArg(MethodArg::from_access(access, $f)?));
+            Ok(())
+        }
+
+        fn visit_method_arg_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::MethodArgAccess<'de, 'de>,
+        {
+            self.$v
+                .push(Content::MethodArg(MethodArg::from_access_borrowed(
+                    access, $f,
+                )?));
+            Ok(())
+        }
+
+        fn visit_method_var<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::MethodVarAccess<'de, 'b>,
+        {
+            self.$v
+                .push(Content::MethodVar(MethodVar::from_access(access, $f)?));
+            Ok(())
+        }
+
+        fn visit_method_var_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
+        where
+            A: mapping_serde::de::MethodVarAccess<'de, 'de>,
+        {
+            self.$v
+                .push(Content::MethodVar(MethodVar::from_access_borrowed(
+                    access, $f,
+                )?));
+            Ok(())
+        }
+    };
+}
+
 pub(crate) mod flat2tree;
+pub(crate) mod tree2flat;
 
 const DST_INLINE: usize = 2;
 

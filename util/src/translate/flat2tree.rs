@@ -24,121 +24,6 @@ struct ClassDesc<'de> {
     sibs: Vec<usize>,
 }
 
-macro_rules! push_contents {
-    ($v:ident) => {
-        fn visit_comment<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: mapping_serde::de::Error,
-        {
-            self.$v
-                .push(Content::Comment(SmolCowStr::Owned(value.into())));
-            Ok(())
-        }
-
-        fn visit_comment_borrowed<E>(self, value: &'de str) -> Result<Self::Value, E>
-        where
-            E: mapping_serde::de::Error,
-        {
-            self.$v.push(Content::Comment(SmolCowStr::Borrowed(value)));
-            Ok(())
-        }
-
-        fn visit_field<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::FieldAccess<'de, 'b>,
-        {
-            self.$v
-                .push(Content::Described(Described::from_field_access(
-                    access,
-                    fill_contents_plain,
-                )?));
-            Ok(())
-        }
-
-        fn visit_field_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::FieldAccess<'de, 'de>,
-        {
-            self.$v
-                .push(Content::Described(Described::from_field_access_borrowed(
-                    access,
-                    fill_contents_plain,
-                )?));
-            Ok(())
-        }
-
-        fn visit_method<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::MethodAccess<'de, 'b>,
-        {
-            self.$v
-                .push(Content::Described(Described::from_method_access(
-                    access,
-                    fill_contents_plain,
-                )?));
-            Ok(())
-        }
-
-        fn visit_method_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::MethodAccess<'de, 'de>,
-        {
-            self.$v
-                .push(Content::Described(Described::from_method_access_borrowed(
-                    access,
-                    fill_contents_plain,
-                )?));
-            Ok(())
-        }
-
-        fn visit_method_arg<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::MethodArgAccess<'de, 'b>,
-        {
-            self.$v.push(Content::MethodArg(MethodArg::from_access(
-                access,
-                fill_contents_plain,
-            )?));
-            Ok(())
-        }
-
-        fn visit_method_arg_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::MethodArgAccess<'de, 'de>,
-        {
-            self.$v
-                .push(Content::MethodArg(MethodArg::from_access_borrowed(
-                    access,
-                    fill_contents_plain,
-                )?));
-            Ok(())
-        }
-
-        fn visit_method_var<'b, A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::MethodVarAccess<'de, 'b>,
-        {
-            self.$v.push(Content::MethodVar(MethodVar::from_access(
-                access,
-                fill_contents_plain,
-            )?));
-            Ok(())
-        }
-
-        fn visit_method_var_borrowed<A>(self, access: A) -> Result<Self::Value, A::Error>
-        where
-            A: mapping_serde::de::MethodVarAccess<'de, 'de>,
-        {
-            self.$v
-                .push(Content::MethodVar(MethodVar::from_access_borrowed(
-                    access,
-                    fill_contents_plain,
-                )?));
-            Ok(())
-        }
-    };
-}
-
 struct PlainVisitor<'env, 'de> {
     contents: &'env mut Vec<Content<'de>>,
 }
@@ -173,7 +58,7 @@ impl<'de> Visitor<'de> for PlainVisitor<'_, 'de> {
         Ok(())
     }
 
-    push_contents!(contents);
+    push_contents!(contents, fill_contents_plain);
 }
 
 fn fill_contents_plain<'de, D>(
@@ -320,7 +205,7 @@ impl<'de> Visitor<'de> for BuildVisitor<'_, 'de> {
         Ok(())
     }
 
-    push_contents!(top_leftover);
+    push_contents!(top_leftover, fill_contents_plain);
 }
 
 impl<'de> Index<'de> {
@@ -807,9 +692,10 @@ pub struct Nest<'de, D> {
 }
 
 impl<D> Nest<'_, D> {
-    pub(crate) fn new(inner: D) -> Self {
+    #[inline]
+    pub(crate) fn new(deserialize: D) -> Self {
         Self {
-            inner: NestedInner::Flat(inner),
+            inner: NestedInner::Flat(deserialize),
         }
     }
 }

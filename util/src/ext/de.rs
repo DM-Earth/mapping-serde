@@ -2,9 +2,9 @@
 
 use mapping_serde::{Deserializer, Serializer};
 
-#[cfg(feature = "std")]
+#[cfg(feature = "translate")]
 use crate::Flatten;
-#[cfg(feature = "std")]
+#[cfg(feature = "translate")]
 use crate::Nest;
 
 /// Extension trait for a [`Deserializer`].
@@ -26,7 +26,7 @@ pub trait DeserializerExt<'de>: Deserializer<'de> {
     }
 
     /// Makes this deserializer nested in its class layout.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "translate")]
     #[inline]
     fn nest(self) -> Nest<'de, Self>
     where
@@ -36,7 +36,7 @@ pub trait DeserializerExt<'de>: Deserializer<'de> {
     }
 
     /// Makes this deserializer flattened in its class layout.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "translate")]
     #[inline]
     fn flatten(self) -> Flatten<'de, Self>
     where

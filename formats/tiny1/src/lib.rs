@@ -9,10 +9,10 @@
 //! # Deserialization
 //!
 //! Due to the flatten nature of Tiny1 format it's more difficult to deserialize it in a tree fashion, which is
-//! required by `mapping-serde`, and there are three ways to deserialize it in this crate:
+//! required by `mapping-serde`, and therefore there are three ways to deserialize it in this crate:
 //!
 //! * Index the whole file with [`Index::from_stream`] then create a deserializer with [`Index::as_deserializer`].
-//!   This is the most conservative way to achieve it and is the slowest.
+//!   This is the most conservative way to achieve it and is the slowest. The classes are still flattened.
 //! * Treat the file as tree-style, like Tiny2 but not indented through [`PseudoTreeDeserializer`].
 //!   This is useful for generated mappings like `intermediary`.
 //! * Visits each entry directly with [`StreamDeserializer`], only if you need low-level access to the file.

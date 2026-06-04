@@ -15,7 +15,7 @@ mod ref_visitor;
 pub use ext::DeserializerExt;
 pub use ref_visitor::RefVisitor;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "translate")]
 pub use translate::flat2tree::Nest;
-#[cfg(feature = "std")]
+#[cfg(feature = "translate")]
 pub use translate::tree2flat::Flatten;

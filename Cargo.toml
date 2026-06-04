@@ -4,7 +4,17 @@ members = ["formats/*", "io", "util"]
 [package]
 name = "java-mapping-serde"
 version = "0.1.0"
+categories = ["parsing"]
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[workspace.package]
 edition = "2024"
+authors = ["Jiening Yu <jiening.yu@outlook.com>"]
+license = "GPL-3.0-or-later"
+repository = "https://codeberg.org/DM-Earth/mapping-serde"
 
 [dependencies]
 

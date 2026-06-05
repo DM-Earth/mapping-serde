@@ -575,22 +575,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if let Some(i) = self.top.next() {
-            let ClassDesc { class, sibs } = std::mem::take(&mut self.classes[i]);
-            let Some(mut class) = class else {
-                return Ok(ControlFlow::Continue(visitor));
-            };
-            let content = std::mem::take(&mut class.content);
-            visitor
-                .visit_class(ClassWrap {
-                    class: &class,
-                    sibs,
-                    content: content.into_vec(),
-                    classes: self.classes,
-                    old: self.old,
-                })
-                .map(ControlFlow::Yield)
-        } else if let Some(content) = self.content.next() {
+        if let Some(content) = self.content.next() {
             match content {
                 Content::Comment(SmolCowStr::Owned(comment)) => visitor.visit_comment(&comment),
                 Content::Comment(SmolCowStr::Borrowed(comment)) => {
@@ -639,6 +624,21 @@ where
                 }
             }
             .map(ControlFlow::Yield)
+        } else if let Some(i) = self.top.next() {
+            let ClassDesc { class, sibs } = std::mem::take(&mut self.classes[i]);
+            let Some(mut class) = class else {
+                return Ok(ControlFlow::Continue(visitor));
+            };
+            let content = std::mem::take(&mut class.content);
+            visitor
+                .visit_class(ClassWrap {
+                    class: &class,
+                    sibs,
+                    content: content.into_vec(),
+                    classes: self.classes,
+                    old: self.old,
+                })
+                .map(ControlFlow::Yield)
         } else {
             Ok(ControlFlow::Break)
         }

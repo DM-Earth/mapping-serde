@@ -12,6 +12,10 @@ smol_str = { version = "0.3", optional = true }
 io-util = { path = "../io", package = "java-mapping-serde-io-util", optional = true }
 smallvec = { version = "1.15", optional = true }
 
+[dev-dependencies]
+mapping-serde-enigma = { path = "../formats/enigma", package = "java-mapping-serde-enigma" }
+mapping-serde-tiny2= { path = "../formats/tiny2", package = "java-mapping-serde-tiny2" }
+
 [features]
 default = ["std"]
 std = ["mapping-serde/std"]

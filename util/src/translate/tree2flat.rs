@@ -1,4 +1,4 @@
-use std::{boxed::Box, collections::VecDeque, string::String, vec::Vec};
+use std::{boxed::Box, string::String, vec::Vec};
 
 use io_util::SmolCowStr;
 use mapping_serde::{
@@ -14,7 +14,7 @@ use crate::{
 
 struct FlattenedVisitor<'env, 'de, V> {
     inner: V,
-    flat: &'env mut VecDeque<Class<'de>>,
+    flat: &'env mut Vec<Class<'de>>,
     // class name stack, containing both source and destinations
     stack: &'env mut Vec<SmallVec<[SmolCowStr<'de>; DST_INLINE]>>,
 }
@@ -42,10 +42,6 @@ where
     where
         A: ClassAccess<'de, 'b>,
     {
-        if self.stack.is_empty() {
-            return self.inner.visit_class(access).map(ControlFlow::Return);
-        }
-
         self.stack.push(
             std::iter::once(access.src())
                 .chain(access.dst())
@@ -65,7 +61,7 @@ where
                 .collect::<String>();
             if comb
                 .as_bytes()
-                .get(comb.len())
+                .get(comb.len() - 1)
                 .is_some_and(|&b| b == CLASS_SPLIT_BYTE)
             {
                 comb.pop();
@@ -76,7 +72,7 @@ where
             .chain(class.dst.as_mut_slice())
             .zip(stacked)
             .for_each(|(dst, src)| *dst = SmolCowStr::Owned(src.into()));
-        self.flat.push_back(class);
+        self.flat.push(class);
         self.stack.pop();
         Ok(ControlFlow::Continue(self.inner))
     }
@@ -85,13 +81,6 @@ where
     where
         A: ClassAccess<'de, 'de>,
     {
-        if self.stack.is_empty() {
-            return self
-                .inner
-                .visit_class_borrowed(access)
-                .map(ControlFlow::Return);
-        }
-
         self.stack.push(
             std::iter::once(access.src())
                 .chain(access.dst())
@@ -110,7 +99,7 @@ where
                 .collect::<String>();
             if comb
                 .as_bytes()
-                .get(comb.len())
+                .get(comb.len() - 1)
                 .is_some_and(|&b| b == CLASS_SPLIT_BYTE)
             {
                 comb.pop();
@@ -121,7 +110,7 @@ where
             .chain(class.dst.as_mut_slice())
             .zip(stacked)
             .for_each(|(dst, src)| *dst = SmolCowStr::Owned(src.into()));
-        self.flat.push_back(class);
+        self.flat.push(class);
         self.stack.pop();
         Ok(ControlFlow::Continue(self.inner))
     }
@@ -265,21 +254,20 @@ where
 fn fill_contents<'de, D>(
     contents: &mut Vec<Content<'de>>,
     mut deser: D,
-    flat: &mut VecDeque<Class<'de>>,
+    flat: &mut Vec<Class<'de>>,
     stack: &mut Vec<SmallVec<[SmolCowStr<'de>; DST_INLINE]>>,
 ) -> Result<(), D::Error>
 where
     D: Deserializer<'de>,
 {
-    let mut visitor = PlainVisitor { contents };
     loop {
         match deser.deserialize_any(FlattenedVisitor {
-            inner: visitor,
+            inner: PlainVisitor { contents },
             flat,
             stack,
         }) {
-            Ok(Some(ControlFlow::Continue(v))) => visitor = v,
-            Ok(None | Some(ControlFlow::Return(_))) => return Ok(()),
+            Ok(None) => return Ok(()),
+            Ok(Some(ControlFlow::Return(_) | ControlFlow::Continue(_))) => continue,
             Err(err) => return Err(err),
         }
     }
@@ -544,7 +532,7 @@ where
 
 struct FlattenedDeserializer<'de, D> {
     inner: D,
-    flat: VecDeque<Class<'de>>,
+    flat: Vec<Class<'de>>,
     stack: Vec<SmallVec<[SmolCowStr<'de>; DST_INLINE]>>,
 }
 
@@ -559,7 +547,7 @@ where
     where
         V: Visitor<'de>,
     {
-        if let Some(mut class) = self.flat.pop_front() {
+        if let Some(mut class) = self.flat.pop() {
             let content = std::mem::take(&mut class.content);
             let access = ClassWrap {
                 inner: &class,
@@ -634,7 +622,7 @@ impl<D> Flatten<'_, D> {
         Self {
             inner: FlattenedDeserializer {
                 inner: deserializer,
-                flat: VecDeque::new(),
+                flat: Vec::new(),
                 stack: Vec::new(),
             },
         }

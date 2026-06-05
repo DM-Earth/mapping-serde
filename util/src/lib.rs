@@ -19,3 +19,9 @@ pub use ref_visitor::RefVisitor;
 pub use translate::flat2tree::Nest;
 #[cfg(feature = "translate")]
 pub use translate::tree2flat::Flatten;
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "translate")]
+    mod translate;
+}

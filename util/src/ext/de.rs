@@ -45,3 +45,5 @@ pub trait DeserializerExt<'de>: Deserializer<'de> {
         Flatten::new(self)
     }
 }
+
+impl<'de, D> DeserializerExt<'de> for D where D: Deserializer<'de> {}

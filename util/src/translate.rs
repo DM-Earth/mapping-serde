@@ -124,6 +124,7 @@ fn make_borrow(val: &str) -> SmolCowStr<'_> {
     SmolCowStr::Borrowed(val)
 }
 
+#[derive(Debug)]
 struct Class<'a> {
     src: SmolCowStr<'a>,
     dst: SmallVec<[SmolCowStr<'a>; DST_INLINE]>,
@@ -164,12 +165,13 @@ impl<'a> Class<'a> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum DescribedKind {
     Method,
     Field,
 }
 
+#[derive(Debug)]
 struct Described<'a> {
     kind: DescribedKind,
     src: SmolCowStr<'a>,
@@ -257,6 +259,7 @@ impl<'a> Described<'a> {
     }
 }
 
+#[derive(Debug)]
 struct MethodArg<'a> {
     src: Option<SmolCowStr<'a>>,
     dst: Option<SmallVec<[SmolCowStr<'a>; 2]>>,
@@ -303,6 +306,7 @@ impl<'a> MethodArg<'a> {
     }
 }
 
+#[derive(Debug)]
 struct MethodVar<'a> {
     src: Option<SmolCowStr<'a>>,
     dst: Option<SmallVec<[SmolCowStr<'a>; 2]>>,
@@ -352,6 +356,7 @@ impl<'a> MethodVar<'a> {
     }
 }
 
+#[derive(Debug)]
 enum Content<'a> {
     Comment(SmolCowStr<'a>),
     Class(Class<'a>),

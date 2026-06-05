@@ -1,0 +1,10 @@
+tiny	2	0	source	target
+	name	valid
+c	class_1	class1Ns0Rename
+	f	I	field_1	field1Ns0Rename
+	m	()I	method_1	method1Ns0Rename
+		c	This is a comment
+c	class_1$class_2	class1Ns0Rename$class2Ns0Rename
+	c	This is a comment
+	f	Lcls;	field_2	field2Ns0Rename
+c	class_3	package_3/class3Ns0Rename

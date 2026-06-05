@@ -610,6 +610,12 @@ where
             }
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (a, b) = self.inner.size_hint();
+        let s = self.flat.len();
+        (a + s, b.map(|b| b + s))
+    }
 }
 
 /// Flattened deserializer that convert tree mapping into flat-style ones.
@@ -655,6 +661,14 @@ where
             self.inner.inner.deserialize_any(visitor)
         } else {
             self.inner.deserialize_any(visitor)
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if D::FLAT_CLASSES {
+            self.inner.inner.size_hint()
+        } else {
+            self.inner.size_hint()
         }
     }
 }

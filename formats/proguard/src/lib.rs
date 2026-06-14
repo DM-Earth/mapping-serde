@@ -1,10 +1,12 @@
 //! mapping-serde support for ProGuard mapping format (deserialize only).
 
-use std::fmt::Display;
+use std::{fmt::Display, io::BufRead};
 
 mod de;
 
 pub use de::Deserializer;
+use io_util::{ColumnReadAdapter, IoReader, SliceReader};
+use mapping_serde::Deserialize;
 
 const INDENT: u8 = b' ';
 
@@ -91,6 +93,45 @@ impl mapping_serde::de::Error for Error {
             col: 0,
         }
     }
+}
+
+/// Deserializes a value from given reader if present.
+#[allow(clippy::missing_errors_doc)]
+pub fn from_reader<R, T>(reader: R, src: &str, dst: &str) -> Result<Option<T>, Error>
+where
+    R: BufRead,
+    T: for<'de> Deserialize<'de>,
+{
+    let mut reader = IoReader::new(Box::new(reader));
+    T::deserialize(Deserializer::new(
+        src,
+        dst,
+        ColumnReadAdapter::new(&mut reader),
+    ))
+}
+
+/// Deserializes a value from given byte slice if present.
+#[allow(clippy::missing_errors_doc)]
+pub fn from_slice<T>(slice: &[u8], src: &str, dst: &str) -> Result<Option<T>, Error>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let mut reader = SliceReader::new(slice);
+    T::deserialize(Deserializer::new(
+        src,
+        dst,
+        ColumnReadAdapter::new(&mut reader),
+    ))
+}
+
+/// Deserializes a value from given string slice if present.
+#[inline]
+#[allow(clippy::missing_errors_doc)]
+pub fn from_str<T>(slice: &str, src: &str, dst: &str) -> Result<Option<T>, Error>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    from_slice(slice.as_bytes(), src, dst)
 }
 
 #[cfg(test)]

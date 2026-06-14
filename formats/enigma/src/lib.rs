@@ -1,12 +1,21 @@
 //! mapping-serde support for Enigma mapping format.
 
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    io::{BufRead, Write},
+    path::Path,
+};
 
 mod de;
 mod ser;
+mod walk;
+
+use io_util::{ColumnReadAdapter, IoReader, SliceReader};
+use mapping_serde::{Deserialize, Serialize};
 
 pub use de::Deserializer;
 pub use ser::Serializer;
+pub use walk::DirDeserializer;
 
 const INDENT: u8 = b'\t';
 const SEPARATOR: u8 = b' ';
@@ -107,6 +116,85 @@ impl mapping_serde::ser::Error for Error {
             col: 0,
         }
     }
+}
+
+/// Deserializes a value from given reader if present.
+#[allow(clippy::missing_errors_doc)]
+pub fn from_reader<R, T>(reader: R, src: &str, dst: &str) -> Result<Option<T>, Error>
+where
+    R: BufRead,
+    T: for<'de> Deserialize<'de>,
+{
+    let mut reader = IoReader::new(Box::new(reader));
+    T::deserialize(Deserializer::new(
+        src,
+        dst,
+        ColumnReadAdapter::new(&mut reader),
+    ))
+}
+
+/// Deserializes a value from given byte slice if present.
+#[allow(clippy::missing_errors_doc)]
+pub fn from_slice<T>(slice: &[u8], src: &str, dst: &str) -> Result<Option<T>, Error>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let mut reader = SliceReader::new(slice);
+    T::deserialize(Deserializer::new(
+        src,
+        dst,
+        ColumnReadAdapter::new(&mut reader),
+    ))
+}
+
+/// Deserializes a value from given string slice if present.
+#[inline]
+#[allow(clippy::missing_errors_doc)]
+pub fn from_str<T>(slice: &str, src: &str, dst: &str) -> Result<Option<T>, Error>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    from_slice(slice.as_bytes(), src, dst)
+}
+
+/// Deserializes a value from given directory.
+#[allow(clippy::missing_errors_doc)]
+pub fn from_directory<T, P>(root: P, src: &str, dst: &str) -> Result<Option<T>, Error>
+where
+    T: for<'de> Deserialize<'de>,
+    P: AsRef<Path>,
+{
+    T::deserialize(DirDeserializer::new(root, src, dst)?)
+}
+
+/// Serializes a value into the given writer.
+#[allow(clippy::missing_errors_doc)]
+pub fn to_writer<T, W>(writer: W, value: T) -> Result<(), Error>
+where
+    T: Serialize,
+    W: Write,
+{
+    value.serialize(Serializer::new(writer))
+}
+
+/// Serializes a value into vector.
+#[allow(clippy::missing_errors_doc)]
+pub fn to_vec<T>(value: T) -> Result<Vec<u8>, Error>
+where
+    T: Serialize,
+{
+    let mut vec = Vec::new();
+    to_writer(&mut vec, value)?;
+    Ok(vec)
+}
+
+/// Serializes a value into string buffer.
+#[allow(clippy::missing_errors_doc)]
+pub fn to_string<T>(value: T) -> Result<String, Error>
+where
+    T: Serialize,
+{
+    to_vec(value).and_then(|vec| String::from_utf8(vec).map_err(mapping_serde::ser::Error::custom))
 }
 
 #[cfg(test)]

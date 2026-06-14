@@ -14,8 +14,9 @@ smol_str = "0.3"
 # workspace deps
 mapping-serde = { path = "../../", package = "java-mapping-serde" }
 io-util = { path = "../../io", package = "java-mapping-serde-io-util", features = [
-    "smol-str",
+  "smol-str",
 ] }
+mapping-serde-util = { path = "../../util", package = "java-mapping-serde-util", default-features = false }
 
 [dev-dependencies]
 mapping-serde-element = { path = "../element", package = "java-mapping-serde-element" }

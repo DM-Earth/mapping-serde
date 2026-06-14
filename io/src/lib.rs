@@ -280,7 +280,74 @@ where
     }
 }
 
+unsafe impl<'de, T> Read<'de> for Box<T>
+where
+    T: Read<'de>,
+{
+    #[inline]
+    fn read_until(&mut self, separator: u8) -> std::io::Result<MaybeBorrowed<'_, 'de, [u8]>> {
+        T::read_until(self, separator)
+    }
+
+    #[inline]
+    fn last_read(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>> {
+        T::last_read(self)
+    }
+}
+
 impl<'de, T> ColumnRead<'de> for &mut T
+where
+    T: ColumnRead<'de>,
+{
+    #[inline]
+    fn read_col(
+        &mut self,
+        col_separator: u8,
+    ) -> std::io::Result<Option<MaybeBorrowed<'_, 'de, [u8]>>> {
+        T::read_col(self, col_separator)
+    }
+
+    #[inline]
+    fn next_line(&mut self, indent: u8) -> std::io::Result<Option<usize>> {
+        T::next_line(self, indent)
+    }
+
+    #[inline]
+    fn last_col(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>> {
+        T::last_col(self)
+    }
+
+    #[inline]
+    fn this_line(&self) -> Option<MaybeBorrowed<'_, 'de, [u8]>> {
+        T::this_line(self)
+    }
+
+    #[inline]
+    fn read_cols<const N: usize>(
+        &mut self,
+        col_separator: u8,
+    ) -> std::io::Result<[Option<MaybeBorrowed<'_, 'de, [u8]>>; N]> {
+        T::read_cols(self, col_separator)
+    }
+
+    #[inline]
+    fn iter_cols<'s>(
+        &'s mut self,
+        col_separator: u8,
+    ) -> impl Iterator<Item = std::io::Result<MaybeBorrowed<'s, 'de, [u8]>>>
+    where
+        'de: 's,
+    {
+        T::iter_cols(self, col_separator)
+    }
+
+    #[inline]
+    fn this_indent(&self) -> Option<usize> {
+        T::this_indent(self)
+    }
+}
+
+impl<'de, T> ColumnRead<'de> for Box<T>
 where
     T: ColumnRead<'de>,
 {

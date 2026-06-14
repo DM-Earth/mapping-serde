@@ -25,23 +25,28 @@ where
         return Ok(true);
     }
     if read.is_fresh_line() {
-        if read.this_indent() != Some(indent) {
+        if read.this_indent() != Some(indent)
+            || read.this_line().is_some_and(|l| l.starts_with(b"#"))
+        {
             *aborted = true;
             return Ok(false);
         }
     } else {
         loop {
-            let i = read.next_line()?;
-            if i.is_none_or(|i| i < indent) {
+            let Some(i) = read.next_line()? else {
                 *aborted = true;
                 return Ok(false);
-            } else if i.is_some_and(|i| i > indent)
-            // filters comment
-                || read.this_line().is_some_and(|l| l.starts_with(b"#"))
-            {
+            };
+            if read.this_line().is_some_and(|l| l.starts_with(b"#")) {
+                continue;
+            }
+            if i < indent {
+                *aborted = true;
+                return Ok(false);
+            } else if i > indent {
                 continue;
             } else {
-                debug_assert_eq!(Some(indent), i);
+                debug_assert_eq!(indent, i);
                 break;
             }
         }

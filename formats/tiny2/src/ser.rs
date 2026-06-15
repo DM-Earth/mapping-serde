@@ -421,12 +421,12 @@ where
     {
         if S::METHOD_PARAM {
             let lv_index = lv_index.ok_or_else(|| Error::missing_field("lv-index"))?;
-            write!(self.writer, "{}p\t{}", Indent(self.indent), lv_index)?;
+            write!(self.writer, "{}p\t{}\t", Indent(self.indent), lv_index)?;
             if let Some(src) = src {
-                write!(self.writer, "\t{}", MaybeEscaped(src, self.escaped_names))?;
-                if let Some(dst) = dst {
-                    write_many(&mut *self.writer, dst, self.escaped_names)?;
-                }
+                write!(self.writer, "{}", MaybeEscaped(src, self.escaped_names))?;
+            }
+            if let Some(dst) = dst {
+                write_many(&mut *self.writer, dst, self.escaped_names)?;
             }
             writeln!(self.writer)?;
             Ok(self.fork())

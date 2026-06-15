@@ -681,18 +681,14 @@ where
                 .and_then(|b| make_smol_cow_str(b, cx.escaped_names))
         })
         .transpose()?;
-    let dst: Option<SmallVec<[_; DST_INLINE]>> = if src.is_some() {
-        Some(parse_dst(&mut *cx.read, cx.escaped_names)?)
-    } else {
-        None
-    };
+    let dst: SmallVec<[_; DST_INLINE]> = parse_dst(&mut *cx.read, cx.escaped_names)?;
 
     type MethodParamSpec = CommentOnlySpec;
 
     struct MethodParam<'env, 'd, R> {
         lv_index: usize,
         src: Option<&'env str>,
-        dst: Option<SmallVec<[&'env str; DST_INLINE]>>,
+        dst: SmallVec<[&'env str; DST_INLINE]>,
         deser: ContentDeserializer<'d, R, MethodParamSpec>,
     }
 
@@ -709,7 +705,11 @@ where
         }
         #[inline]
         fn dst(&self) -> Option<impl Iterator<Item = &'env str>> {
-            self.dst.as_deref().map(|d| d.iter().copied())
+            if self.dst.is_empty() {
+                None
+            } else {
+                Some(self.dst.iter().copied())
+            }
         }
         #[inline]
         fn pos(&self) -> Option<usize> {
@@ -732,8 +732,8 @@ where
         spec: CommentOnlySpec,
     };
 
-    if let (Some(SmolCowStr::Borrowed(src)), Some(dst)) = (&src, &dst)
-        && let dst @ Some(_) = try_borrow_many(dst)
+    if let Some(SmolCowStr::Borrowed(src)) = src
+        && let Some(dst) = try_borrow_many(&dst)
     {
         visitor.visit_method_arg_borrowed(MethodParam {
             lv_index,
@@ -745,9 +745,7 @@ where
         visitor.visit_method_arg(MethodParam {
             lv_index,
             src: src.as_deref(),
-            dst: dst
-                .as_ref()
-                .map(|dst| dst.iter().map(Deref::deref).collect()),
+            dst: dst.iter().map(Deref::deref).collect(),
             deser,
         })
     }

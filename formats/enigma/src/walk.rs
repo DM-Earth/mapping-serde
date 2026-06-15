@@ -67,6 +67,10 @@ impl<'a> DirDeserializer<'a> {
             };
             if let Some(entry) = dir.next().transpose()? {
                 self.dirs_stack.push(dir);
+                if entry.file_type()?.is_dir() {
+                    self.dirs_stack.push(std::fs::read_dir(entry.path())?);
+                    return Ok(ControlFlow::Continue(visitor));
+                }
                 let file = File::open(entry.path())?;
                 self.current = Some(Deserializer::new(
                     self.src,

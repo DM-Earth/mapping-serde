@@ -271,9 +271,11 @@ where
     }
 }
 
+enum Unconstructable {}
+
 /// Helper type for implementing a `Serializer` that does not support serializing one of the element types.
 #[allow(missing_debug_implementations)]
-pub struct Impossible<Err>(PhantomData<Err>);
+pub struct Impossible<Err>(Unconstructable, PhantomData<Err>);
 
 impl<Err> Serializer for Impossible<Err>
 where

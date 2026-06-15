@@ -56,7 +56,7 @@ where
             let mut comb = self
                 .stack
                 .iter()
-                .map(move |s| &s[i])
+                .map(move |s| s.get(i).unwrap_or(&s[0]))
                 .flat_map(|s| [&**s, CLASS_SPLIT])
                 .collect::<String>();
             if comb

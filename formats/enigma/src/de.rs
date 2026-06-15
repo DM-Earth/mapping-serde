@@ -48,14 +48,11 @@ fn parse_bytes<'a, 'b>(
 
 fn parse_bytes_optional<'a, 'b>(
     b: Option<MaybeBorrowed<'a, 'b, [u8]>>,
-    section: &str,
+    _section: &str,
 ) -> Result<Option<MaybeBorrowed<'a, 'b, str>>, Error> {
-    b.ok_or_else(|| Error::missing_field(section))
-        .map(|b| (&*b != b"-").then_some(b))
-        .and_then(|b| {
-            b.map(|b| b.try_map(str::from_utf8).map_err(Into::into))
-                .transpose()
-        })
+    b.filter(|b| &**b != b"-")
+        .map(|b| b.try_map(|b| str::from_utf8(b).map_err(Into::into)))
+        .transpose()
 }
 
 impl<'de, R> Deserializer<'_, R>
@@ -212,6 +209,7 @@ where
         visitor.visit_comment(&merged)
     }
 
+    #[allow(clippy::useless_let_if_seq)]
     fn deserialize_described_impl<V>(
         &mut self,
         visitor: V,
@@ -220,10 +218,17 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let [src, dst, desc] = self.read.read_cols()?;
+        let [src, dst_raw, desc_raw] = self.read.read_cols()?;
         let src = parse_bytes(src, "name-a")?;
-        let dst = parse_bytes_optional(dst, "name-b")?;
-        let desc = parse_bytes(desc, "desc-a")?;
+        let dst;
+        let desc;
+        if desc_raw.is_some() {
+            dst = Some(parse_bytes(dst_raw, "name-b")?);
+            desc = parse_bytes(desc_raw, "desc-a")?;
+        } else {
+            dst = None;
+            desc = parse_bytes(dst_raw, "desc-a")?;
+        }
 
         struct Described<'env, 'd, R> {
             src: &'env str,

@@ -1,6 +1,6 @@
 use io_util::{ColumnRead, ColumnReader, SmolCowStr};
 use mapping_serde::de::{self, ClassAccess, Error as _, FieldAccess, MethodAccess};
-use smol_str::{SmolStr, format_smolstr};
+use smol_str::{SmolStr, StrExt as _, format_smolstr};
 
 use crate::{Error, INDENT};
 
@@ -68,6 +68,15 @@ where
     }
 }
 
+fn process_src(name: &str) -> SmolStr {
+    name.replace_smolstr(".", "/")
+}
+
+// #[inline]
+// fn process_desc(name: &str) -> SmolStr {
+//     process_src(name)
+// }
+
 impl<'de, R> Deserializer<'_, R>
 where
     R: ColumnRead<'de>,
@@ -91,7 +100,7 @@ where
             .split_once(" -> ")
             .ok_or_else(|| Error::custom("missing separator ' -> ' in classline"))?;
 
-        let (src, dst) = (SmolStr::new(src), SmolStr::new(dst));
+        let (src, dst) = (process_src(src), SmolStr::new(dst));
 
         struct Class<'a, R> {
             src: &'a str,
@@ -307,7 +316,7 @@ where
         let src_and_args = orig_ty.split_once(':').map_or(src_and_args, |(a, _)| a);
         let (src, args) = src_and_args.split_once('(').unzip();
         let src = src.unwrap_or(src_and_args);
-        let src = src.split_once('.').map_or(src, |(_, b)| b);
+        let src = process_src(src.split_once('.').map_or(src, |(_, b)| b));
         let args = args
             .map(|a| {
                 a.strip_suffix(')')
@@ -333,7 +342,7 @@ where
                 desc.push(')');
                 desc.push_str(&orig_ty);
                 let access = Described {
-                    src,
+                    src: &src,
                     dst,
                     desc: &desc,
                     deser,
@@ -343,7 +352,7 @@ where
             // field
             None => {
                 let access = Described {
-                    src,
+                    src: &src,
                     dst,
                     desc: &orig_ty,
                     deser,

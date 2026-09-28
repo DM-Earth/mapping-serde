@@ -1,6 +1,9 @@
 [package]
 name = "java-mapping-serde-proguard"
 version = "0.1.0"
+description = "ProGuard mapping format support for java-mapping-serde (deserialize only)"
+categories = ["parser-implementations"]
+keywords = ["java", "mapping", "mojmaps", "srg", "proguard"]
 edition.workspace = true
 authors.workspace = true
 license.workspace = true

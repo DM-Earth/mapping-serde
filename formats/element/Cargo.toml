@@ -1,6 +1,7 @@
 [package]
 name = "java-mapping-serde-element"
 version = "0.1.0"
+description = "Generalized, fully-owned in-memory representation of Java deobfuscation mappings"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true

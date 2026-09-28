@@ -1,6 +1,8 @@
 [package]
 name = "java-mapping-serde-io-util"
 version = "0.1.0"
+description = "I/O utilities for implementing mapping format readers and writers"
+categories = ["parsing"]
 edition.workspace = true
 authors.workspace = true
 license.workspace = true

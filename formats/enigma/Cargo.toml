@@ -1,6 +1,9 @@
 [package]
 name = "java-mapping-serde-enigma"
 version = "0.1.0"
+description = "Enigma mapping format support for java-mapping-serde"
+categories = ["parser-implementations"]
+keywords = ["java", "mapping", "enigma", "fabric"]
 edition.workspace = true
 authors.workspace = true
 license.workspace = true

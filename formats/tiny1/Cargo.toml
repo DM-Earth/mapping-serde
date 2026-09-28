@@ -1,6 +1,9 @@
 [package]
 name = "java-mapping-serde-tiny1"
 version = "0.1.0"
+description = "Tiny v1 mapping format support for java-mapping-serde"
+categories = ["parser-implementations"]
+keywords = ["java", "mapping", "tiny", "tiny1", "fabric"]
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
